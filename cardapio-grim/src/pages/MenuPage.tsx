@@ -1,9 +1,6 @@
 // src/pages/MenuPage.tsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useContext } from 'react';
 import { useParams } from 'react-router-dom';
-
-// Tipos
-import type { CatalogData, Product, CartItem } from '../types/index.tsx';
 
 // Componentes
 import Header from '../components/Header.tsx';
@@ -13,68 +10,69 @@ import CartDrawer from '../components/CartDrawer.tsx';
 import Spinner from '../components/Spinner.tsx';
 import NotFound from '../pages/NotFound.tsx';
 
+// Contexto
+import { CatalogContext } from '../context/CatalogContext.tsx';
+
 const MenuPage = () => {
   const { company_slug } = useParams<{ company_slug: string }>();
   
-  const [catalog, setCatalog] = useState<CatalogData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const context = useContext(CatalogContext);
+  if (!context) {
+    throw new Error("MenuPage deve ser renderizada dentro de um CatalogProvider");
+  }
+
+  const {
+    catalog,
+    loading,
+    error,
+    cart,
+    fetchCatalog,
+    handleAddToCart,
+    handleSubtractFromCart
+  } = context;
+
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [cart, setCart] = useState<CartItem[]>([]);
 
+  // Busca inicial do Catálogo (o Polling de 15s agora roda automaticamente no Contexto)
   useEffect(() => {
-    if (!company_slug) return;
+    if (company_slug) {
+      fetchCatalog(company_slug);
+    }
+  }, [company_slug, fetchCatalog]);
 
-    const fetchCatalog = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await fetch(`<https://web-production-6e1d8.up.railway.app/api/catalog/${company_slug}/>`);
-        if (response.status === 404) {
-          throw new Error('Restaurante não encontrado.');
-        }
-        if (!response.ok) {
-          throw new Error('Ocorreu um erro ao buscar o cardápio.');
-        }
-        const data: CatalogData = await response.json();
-        setCatalog(data);
-        // Define a primeira categoria como selecionada por padrão
-        if (data.categories && data.categories.length > 0) {
-          setSelectedCategory(data.categories[0].id);
-        }
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCatalog();
-  }, [company_slug]);
-
-  const handleAddToCart = (product: Product) => {
-    setCart((prevCart) => {
-      const existingItem = prevCart.find(item => item.id === product.id);
-      if (existingItem) {
-        // Aumenta a quantidade se o item já existe
-        return prevCart.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
-      // Adiciona novo item ao carrinho
-      return [...prevCart, { ...product, quantity: 1 }];
-    });
-  };
-
-  // Filtra os produtos com base na categoria selecionada
-  const filteredProducts = useMemo(() => {
-    if (!catalog || !selectedCategory) return [];
-    const category = catalog.categories.find(cat => cat.id === selectedCategory);
-    return category ? category.products : [];
+  // Define a primeira categoria como selecionada automaticamente ao carregar
+  useEffect(() => {
+    if (catalog?.categories && catalog.categories.length > 0 && selectedCategory === null) {
+      setSelectedCategory(catalog.categories[0].id);
+    }
   }, [catalog, selectedCategory]);
 
-  if (loading) {
-    return <Spinner />;
+  // Filtra os produtos e FORMATA o nome das categorias, produtos e descrições para primeira letra maiúscula
+  const formattedCategories = useMemo(() => {
+    if (!catalog) return [];
+    return catalog.categories.map(cat => ({
+      ...cat,
+      name: cat.name ? cat.name.charAt(0).toUpperCase() + cat.name.slice(1).toLowerCase() : '',
+      products: cat.products.map(prod => ({
+        ...prod,
+        name: prod.name ? prod.name.charAt(0).toUpperCase() + prod.name.slice(1).toLowerCase() : '',
+        description: prod.description ? prod.description.charAt(0).toUpperCase() + prod.description.slice(1) : ''
+      }))
+    }));
+  }, [catalog]);
+
+  const filteredProducts = useMemo(() => {
+    if (!formattedCategories || selectedCategory === null) return [];
+    const category = formattedCategories.find(cat => cat.id === selectedCategory);
+    return category ? category.products : [];
+  }, [formattedCategories, selectedCategory]);
+
+  if (loading && !catalog) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <Spinner />
+      </div>
+    );
   }
 
   if (error) {
@@ -82,33 +80,79 @@ const MenuPage = () => {
   }
 
   if (!catalog) {
-    return null; // ou outra UI de fallback
+    return null;
   }
 
+  const primaryColor = catalog.theme?.primary || '#27272a';
+  const backgroundColor = catalog.theme?.background || '#fafaf9';
+
   return (
-    // Aplicando a cor de fundo dinâmica
-    <div className="min-h-screen" style={{ backgroundColor: catalog.theme.background }}>
-      <Header
-        name={catalog.name}
-        coverImage={catalog.cover_image}
-        isOpen={catalog.is_open}
-      />
+    <div 
+      className="min-h-screen font-sans transition-colors duration-300 relative overflow-hidden" 
+      style={{ backgroundColor }}
+    >
+      {/* DECORAÇÃO LATERAL (Aparece apenas em Desktop) */}
+      <div className="hidden lg:block fixed left-0 top-0 w-64 h-full pointer-events-none opacity-5">
+        <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] repeat"></div>
+      </div>
+      <div className="hidden lg:block fixed right-0 top-0 w-64 h-full pointer-events-none opacity-5">
+        <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] repeat"></div>
+      </div>
+
+      {/* HEADER DINÂMICO */}
+      <div className="w-full bg-white/5 shadow-sm relative z-10">
+        <Header
+          name={catalog.name}
+          coverImage={catalog.cover_image}
+          logoUrl={catalog.logo_url} // <-- ESSA LINHA PRECISA ESTAR AQUI!
+          isOpen={catalog.is_open}
+        />
+      </div>
       
-      <main className="p-4 pb-24"> {/* Padding-bottom para não sobrepor o CartDrawer */}
-        <CategoryCarousel
-          categories={catalog.categories}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-          theme={catalog.theme}
-        />
+      {/* CORPO PRINCIPAL */}
+      <main className="max-w-3xl mx-auto w-full px-4 sm:px-6 pt-4 pb-32 animate-fade-in-up gap-5 flex flex-col relative z-10 min-h-screen shadow-2xl shadow-black/5"> 
         
-        <ProductList
-          products={filteredProducts}
-          onAddToCart={handleAddToCart}
-        />
+        {/* Se a loja estiver fechada, exibe o aviso antes dos produtos */}
+        {!catalog.is_open && (
+          <div className="rounded-lg bg-red-50 border border-red-100 p-4 text-center">
+            <p className="text-sm font-medium text-red-800">
+              Estamos fechados no momento! Você ainda pode ver o cardápio, mas não será possível enviar pedidos.
+            </p>
+          </div>
+        )}
+        
+        {/* NAVEGAÇÃO STICKY DE CATEGORIAS */}
+        <div 
+          className="sticky top-2 z-30 w-full h-full shadow-sm/30 backdrop-blur-md transition-all border border-stone-200/40 rounded-xl"
+          style={{ backgroundColor: `${backgroundColor}E6` }} 
+        >
+          <CategoryCarousel
+            categories={formattedCategories}
+            selectedCategory={selectedCategory}
+            onSelectCategory={setSelectedCategory}
+            theme={catalog.theme}
+          />
+        </div>
+        
+        {/* LISTA DE PRODUTOS */}
+        <div className="min-h-[50vh] mt-2">
+          <ProductList 
+            products={filteredProducts}
+            cart={cart}
+            primaryColor={primaryColor}
+            onAddToCart={handleAddToCart}
+            onSubtractFromCart={handleSubtractFromCart}
+          />
+        </div>
+
       </main>
 
-      <CartDrawer cart={cart} theme={catalog.theme} />
+      {/* CARRINHO FLUTUANTE */}
+      <CartDrawer 
+        cart={cart} 
+        theme={catalog.theme} 
+        companySlug={company_slug!} 
+      />
     </div>
   );
 };

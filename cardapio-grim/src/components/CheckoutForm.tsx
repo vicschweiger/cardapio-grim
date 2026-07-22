@@ -1,7 +1,7 @@
 // src/components/CheckoutForm.tsx
 import { useState, FormEvent } from 'react';
 import type { CartItem, ThemeColors } from '../types';
-import Input from './ui/Input.tsx';
+import Input from './Input.tsx';
 import SuccessModal from '../pages/SuccessModal.tsx';
 
 interface CheckoutFormProps {

@@ -1,9 +1,8 @@
-// src/types/index.ts
 export interface Product {
   id: number;
   name: string;
   description: string;
-  price: string; // ou number, dependendo da sua API
+  price: string;
   image_url: string;
 }
 
@@ -13,23 +12,19 @@ export interface Category {
   products: Product[];
 }
 
-export interface ThemeColors {
-  primary: string;
-  secondary: string;
+export interface Theme {
   background: string;
-  text: string;
 }
 
 export interface CatalogData {
   name: string;
-  cover_image: string;
   is_open: boolean;
-  theme: ThemeColors;
+  cover_image: string;
+  theme: Theme;
+  logo_url?: string;
   categories: Category[];
 }
 
-// Para o carrinho
 export interface CartItem extends Product {
   quantity: number;
 }
-  
