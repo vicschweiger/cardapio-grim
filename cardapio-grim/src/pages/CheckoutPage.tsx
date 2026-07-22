@@ -77,6 +77,9 @@ export default function CheckoutPage() {
     return Math.max(0, subtotal + deliveryFee + serviceFee - discountValue);
   }, [subtotal, deliveryFee, serviceFee, discountValue]);
 
+  const logoUrl = catalog?.logo_url;
+  const name = catalog?.name || '';
+
   const getChangeForAsNumber = () => {
     if (!changeForStr) return 0;
     const cleanStr = changeForStr.replace(/\./g, '').replace(',', '.');
@@ -259,6 +262,27 @@ export default function CheckoutPage() {
           <Link to={`/${company_slug}`} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-900 transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </Link>
+          {/* AVATAR / LOGO */}
+          <div className="shrink-0 relative">
+            {logoUrl ? (
+              // Container com fundo branco e padding para a imagem respirar e não encostar nas bordas
+              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white flex items-center justify-center overflow-hidden p-1.5">
+                <img
+                  src={logoUrl}
+                  alt={`Logo de ${name}`}
+                  // object-contain garante que a imagem caiba inteira sem cortar, mantendo a proporção original
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            ) : (
+              // Fallback elegante caso a empresa ainda não tenha logo
+              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border border-gray-200 shadow-sm">
+                <span className="text-gray-400 text-3xl sm:text-4xl font-bold uppercase">
+                  {name ? name.charAt(0) : ''}
+                </span>
+              </div>
+            )}
+          </div>
           <div>
             <h2 className="text-lg font-bold text-gray-900">Finalizar Pedido</h2>
             <p className="text-xs text-gray-500 capitalize">{catalog?.name}</p>

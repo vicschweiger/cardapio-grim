@@ -4,6 +4,9 @@ import MenuPage from './pages/MenuPage.tsx';
 import NotFound from './pages/NotFound.tsx';
 import CheckoutPage from './pages/CheckoutPage.tsx';
 import { CatalogProvider } from './context/CatalogContext.tsx'; // Importado do arquivo correto!
+import { DynamicTitle } from './components/DynamicTitle.tsx';
+import { DynamicFavicon } from './components/DynamicFavicon.tsx';
+
 
 function App() {
   return (
@@ -17,6 +20,8 @@ function App() {
           path="/:company_slug" 
           element={
             <CatalogProvider>
+              <DynamicFavicon />
+              <DynamicTitle />
               <Outlet />
             </CatalogProvider>
           } 
