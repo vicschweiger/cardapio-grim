@@ -24,12 +24,12 @@ export default function CheckoutPage() {
 
   const cartState = location.state as { subTotal: number, deliveryFee: number, discount: number, total: number, coupon: string | null } | null;
 
-  // Estados: Cliente
+  // Estados dos Formulários
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  
-  // Estados: Logística (AGORA COM OS CAMPOS FRAGMENTADOS DO CEP)
   const [isPickup, setIsPickup] = useState(false);
+  
+  // NOVOS ESTADOS FRAGMENTADOS DO ENDEREÇO
   const [deliveryCep, setDeliveryCep] = useState('');
   const [deliveryStreet, setDeliveryStreet] = useState('');
   const [deliveryNumber, setDeliveryNumber] = useState('');
@@ -37,17 +37,21 @@ export default function CheckoutPage() {
   const [deliveryNeighborhood, setDeliveryNeighborhood] = useState('');
   const [deliveryCity, setDeliveryCity] = useState('');
   const [deliveryState, setDeliveryState] = useState('');
-  const [deliveryInstructions, setDeliveryInstructions] = useState('');
   
-  // Estados: Pagamento & Cupons
+  const [deliveryInstructions, setDeliveryInstructions] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'money' | 'card' | 'pix' | 'mercadopago'>('money');
   const [cardType, setCardType] = useState<'credit' | 'debit'>('credit');
   const [changeForStr, setChangeForStr] = useState('');
+  
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(cartState?.coupon || null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderCreatedId, setOrderCreatedId] = useState<number | null>(null);
+
+  // ESTADOS DO FRETE E BLOQUEIO
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [isDeliveryBlocked, setDeliveryBlocked] = useState(true); // Começa bloqueado até calcular
 
   // Cálculos Financeiros
   const subtotal = useMemo(() => cart.reduce((acc, item) => {
@@ -55,9 +59,7 @@ export default function CheckoutPage() {
     return acc + ((isNaN(itemPrice) ? 0 : itemPrice) * item.quantity);
   }, 0), [cart]);
 
-  const deliveryFee = useMemo(() => isPickup ? 0 : (catalog?.delivery_fee ? Number(catalog.delivery_fee) : 4.90), [isPickup, catalog?.delivery_fee]);
-  const serviceFee = 0.00; 
-
+  const serviceFee = 0; // Se houver taxa de serviço futuramente, ajuste aqui
   const discountValue = useMemo(() => appliedCoupon ? subtotal * 0.10 : (cartState?.discount || 0), [appliedCoupon, subtotal, cartState?.discount]);
   const totalAmount = useMemo(() => Math.max(0, subtotal + deliveryFee + serviceFee - discountValue), [subtotal, deliveryFee, serviceFee, discountValue]);
 
@@ -74,6 +76,7 @@ export default function CheckoutPage() {
     setChangeForStr(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(numberValue)));
   };
 
+  // Funções de manipulação de cupons
   const handleApplyCheckoutCoupon = () => {
     if (couponCodeInput.trim().length > 0) {
       setAppliedCoupon(couponCodeInput.trim().toUpperCase());
@@ -91,6 +94,9 @@ export default function CheckoutPage() {
 
     if (!catalog.is_open) return alert("O estabelecimento encontra-se fechado. Não é possível enviar pedidos.");
     if (customerPhone.replace(/\D/g, '').length < 10) return alert("Por favor, insira um número de celular válido.");
+    
+    // Trava de segurança extra (back-up visual)
+    if (!isPickup && isDeliveryBlocked) return alert("Por favor, verifique o seu endereço. A entrega não está disponível para esta localização.");
 
     try {
       setIsSubmitting(true);
@@ -117,7 +123,11 @@ export default function CheckoutPage() {
 
       let finalPaymentMethod = paymentMethod === 'card' ? (cardType === 'credit' ? 'card_credit' : 'card_debit') : paymentMethod;
 
-      // Monta a payload enviando todos os dados fragmentados do endereço
+      // Constrói o endereço completo legível se for Delivery
+      const fullDeliveryAddress = isPickup 
+        ? "Retirada no Balcão" 
+        : `${deliveryStreet}, ${deliveryNumber}${deliveryComplement ? ` - ${deliveryComplement}` : ''} • ${deliveryNeighborhood} • ${deliveryCity}/${deliveryState} (CEP: ${deliveryCep})`;
+
       const response = await fetch(`${API_BASE_URL}/orders/${company_slug}/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -125,23 +135,18 @@ export default function CheckoutPage() {
           customer_name: customerName,
           customer_phone: customerPhone,
           is_pickup: isPickup,
-          
-          // Novos campos de endereço:
-          delivery_cep: isPickup ? "" : deliveryCep,
-          delivery_street: isPickup ? "" : deliveryStreet,
-          delivery_number: isPickup ? "" : deliveryNumber,
-          delivery_complement: isPickup ? "" : deliveryComplement,
-          delivery_neighborhood: isPickup ? "" : deliveryNeighborhood,
-          delivery_city: isPickup ? "" : deliveryCity,
-          delivery_state: isPickup ? "" : deliveryState,
-          delivery_address: isPickup ? "Retirada no Balcão" : "", // Deixa vazio, o backend formata sozinho!
+          // Enviamos a string completa E as partes quebradas para facilitar gestão do lojista no painel
+          delivery_address: fullDeliveryAddress,
+          delivery_cep: deliveryCep,
+          delivery_street: deliveryStreet,
+          delivery_number: deliveryNumber,
+          delivery_complement: deliveryComplement,
+          delivery_neighborhood: deliveryNeighborhood,
+          delivery_city: deliveryCity,
+          delivery_state: deliveryState,
           delivery_instructions: deliveryInstructions,
-          
           items: formattedItems,
-          subtotal, 
-          delivery_fee: deliveryFee, 
-          service_fee: serviceFee, 
-          total_amount: totalAmount,
+          subtotal, delivery_fee: deliveryFee, service_fee: serviceFee, total_amount: totalAmount,
           payment_method: finalPaymentMethod,
           change_for: paymentMethod === 'money' && changeForStr ? getChangeForAsNumber() : null,
           is_paid: paymentMethod === 'pix' || paymentMethod === 'mercadopago',
@@ -188,18 +193,12 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <CheckoutCustomerForm 
-            customerName={customerName} 
-            setCustomerName={setCustomerName} 
-            customerPhone={customerPhone} 
-            setCustomerPhone={setCustomerPhone} 
-          />
+          <CheckoutCustomerForm customerName={customerName} setCustomerName={setCustomerName} customerPhone={customerPhone} setCustomerPhone={setCustomerPhone} />
           
+          {/* O FORMULÁRIO COM TODAS AS PROPS PASSADAS CORRETAMENTE */}
           <CheckoutDeliveryForm 
             isPickup={isPickup} 
             setIsPickup={setIsPickup} 
-            
-            // Passando os novos estados do endereço para o componente
             deliveryCep={deliveryCep}
             setDeliveryCep={setDeliveryCep}
             deliveryStreet={deliveryStreet}
@@ -214,23 +213,23 @@ export default function CheckoutPage() {
             setDeliveryCity={setDeliveryCity}
             deliveryState={deliveryState}
             setDeliveryState={setDeliveryState}
-            
             deliveryInstructions={deliveryInstructions} 
             setDeliveryInstructions={setDeliveryInstructions} 
+            companyToken={company_slug!}
+            onDeliveryCalculated={(fee) => setDeliveryFee(fee)}
+            setDeliveryBlocked={setDeliveryBlocked}
           />
           
-          <CheckoutPaymentForm 
-            paymentMethod={paymentMethod} 
-            setPaymentMethod={setPaymentMethod} 
-            cardType={cardType} 
-            setCardType={setCardType} 
-            changeForStr={changeForStr} 
-            handleChangeForInput={handleChangeForInput} 
-          />
+          <CheckoutPaymentForm paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod} cardType={cardType} setCardType={setCardType} changeForStr={changeForStr} handleChangeForInput={handleChangeForInput} />
 
           <div className="lg:hidden">
-            <button type="submit" disabled={isSubmitting || catalog?.is_open === false} className="w-full bg-teal-600 text-white rounded-xl py-3.5 font-bold hover:bg-teal-700 disabled:opacity-50 transition-colors shadow-lg flex items-center justify-center gap-2">
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirmar e Enviar Pedido"}
+            {/* O BOTÃO AGORA DESABILITA SE A ENTREGA ESTIVER BLOQUEADA */}
+            <button 
+              type="submit" 
+              disabled={isSubmitting || catalog?.is_open === false || (!isPickup && isDeliveryBlocked)} 
+              className="w-full bg-teal-600 text-white rounded-xl py-3.5 font-bold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (!isPickup && isDeliveryBlocked) ? "Endereço Fora de Área" : "Confirmar e Enviar Pedido"}
             </button>
           </div>
         </form>

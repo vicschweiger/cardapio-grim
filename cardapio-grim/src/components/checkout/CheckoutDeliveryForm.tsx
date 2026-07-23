@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { MapPin, Truck, Store, Loader2, Search } from 'lucide-react';
+import { MapPin, Truck, Store, Loader2, Search, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 interface CheckoutDeliveryFormProps {
   isPickup: boolean;
   setIsPickup: (val: boolean) => void;
-  // Campos fragmentados de endereço
   deliveryCep: string;
   setDeliveryCep: (val: string) => void;
   deliveryStreet: string;
@@ -21,6 +20,11 @@ interface CheckoutDeliveryFormProps {
   setDeliveryState: (val: string) => void;
   deliveryInstructions: string;
   setDeliveryInstructions: (val: string) => void;
+  
+  // NOVAS PROPS PARA O CÁLCULO DE FRETE
+  companyToken: string; 
+  onDeliveryCalculated: (fee: number) => void; 
+  setDeliveryBlocked: (isBlocked: boolean) => void; // Avisa a página pai para bloquear o botão de Checkout
 }
 
 export function CheckoutDeliveryForm({ 
@@ -41,23 +45,30 @@ export function CheckoutDeliveryForm({
   deliveryState,
   setDeliveryState,
   deliveryInstructions, 
-  setDeliveryInstructions 
+  setDeliveryInstructions,
+  companyToken,
+  onDeliveryCalculated,
+  setDeliveryBlocked
 }: CheckoutDeliveryFormProps) {
 
   const [isLoadingCep, setIsLoadingCep] = useState(false);
   const [cepError, setCepError] = useState('');
 
+  // ESTADOS DO CÁLCULO DE FRETE (Estes ficam aqui para controlar a UI do formulário)
+  const [isCalculatingDelivery, setIsCalculatingDelivery] = useState(false);
+  const [deliveryErrorMsg, setDeliveryErrorMsg] = useState('');
+  const [deliverySuccessMsg, setDeliverySuccessMsg] = useState('');
+
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://web-production-6e1d8.up.railway.app';
+
   // Lógica Robusta: Máscara e Busca automática do CEP
   const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    // 1. Remove tudo o que não for número (impede letras)
     let rawValue = e.target.value.replace(/\D/g, ''); 
     
-    // 2. Trava em no máximo 8 números
     if (rawValue.length > 8) {
       rawValue = rawValue.slice(0, 8);
     }
     
-    // 3. Aplica a máscara visual "00000-000"
     let maskedValue = rawValue;
     if (rawValue.length > 5) {
       maskedValue = `${rawValue.slice(0, 5)}-${rawValue.slice(5)}`;
@@ -65,8 +76,11 @@ export function CheckoutDeliveryForm({
     
     setDeliveryCep(maskedValue);
     setCepError('');
+    // Ao mudar o CEP, reseta os cálculos anteriores
+    setDeliveryErrorMsg('');
+    setDeliverySuccessMsg('');
+    setDeliveryBlocked(true); 
 
-    // 4. Se tiver exatos 8 números, dispara a busca sozinho
     if (rawValue.length === 8) {
       await fetchAddressFromViaCep(rawValue);
     }
@@ -81,7 +95,6 @@ export function CheckoutDeliveryForm({
 
       if (data.erro) {
         setCepError('CEP não encontrado. Digite o endereço manualmente.');
-        // Limpa os campos para o cliente digitar se falhar
         setDeliveryStreet('');
         setDeliveryNeighborhood('');
         setDeliveryCity('');
@@ -89,13 +102,11 @@ export function CheckoutDeliveryForm({
         return;
       }
 
-      // Preenche os campos magicamente
       setDeliveryStreet(data.logradouro || '');
       setDeliveryNeighborhood(data.bairro || '');
       setDeliveryCity(data.localidade || '');
       setDeliveryState(data.uf || '');
       
-      // Foca automaticamente no campo "Número" para o usuário continuar digitando
       document.getElementById('input-delivery-number')?.focus();
 
     } catch (error) {
@@ -106,6 +117,58 @@ export function CheckoutDeliveryForm({
     }
   };
 
+  // NOVA LÓGICA: Calcula o frete com o Django + Google Maps
+  const handleCalculateDelivery = async () => {
+    // Só calcula se os dados mínimos existirem
+    if (!deliveryCep || !deliveryStreet || !deliveryNumber || !deliveryCity) return;
+
+    setIsCalculatingDelivery(true);
+    setDeliveryErrorMsg('');
+    setDeliverySuccessMsg('');
+
+    const fullAddress = `${deliveryStreet}, ${deliveryNumber}, ${deliveryCity} - ${deliveryState}, ${deliveryCep}`;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/orders/${companyToken}/calculate-delivery/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customer_address: fullAddress })
+      });
+      
+      const data = await response.json();
+
+      if (response.ok) {
+        onDeliveryCalculated(data.taxa_frete);
+        setDeliverySuccessMsg(`Distância: ${data.distancia_texto} - Taxa de Entrega: R$ ${data.taxa_frete.toFixed(2).replace('.', ',')}`);
+        setDeliveryBlocked(false); // Libera o checkout
+      } else {
+        setDeliveryErrorMsg(data.error || 'Fora da área de cobertura.');
+        onDeliveryCalculated(0);
+        setDeliveryBlocked(true); // Bloqueia o checkout
+      }
+    } catch (error) {
+      console.error("Erro na API de frete:", error);
+      setDeliveryErrorMsg('Erro ao calcular a distância de entrega. Tente novamente.');
+      setDeliveryBlocked(true);
+    } finally {
+      setIsCalculatingDelivery(false);
+    }
+  };
+
+  // Se o cliente trocar para Retirada, libera o checkout e zera a taxa
+  const handlePickupToggle = (pickup: boolean) => {
+    setIsPickup(pickup);
+    if (pickup) {
+      setDeliveryErrorMsg('');
+      setDeliveryBlocked(false);
+      onDeliveryCalculated(0);
+    } else {
+      setDeliveryBlocked(true);
+      // Se já tiver os dados, recalcula
+      if (deliveryNumber && deliveryCep) handleCalculateDelivery();
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm space-y-4">
       <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">
@@ -113,10 +176,10 @@ export function CheckoutDeliveryForm({
       </h3>
       
       <div className="grid grid-cols-2 gap-3 p-1 bg-gray-100 rounded-xl border border-gray-200/40">
-        <button type="button" onClick={() => setIsPickup(false)} className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${!isPickup ? 'bg-white text-gray-900 shadow-sm border border-gray-200/50' : 'text-gray-500 hover:text-gray-900'}`}>
+        <button type="button" onClick={() => handlePickupToggle(false)} className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${!isPickup ? 'bg-white text-gray-900 shadow-sm border border-gray-200/50' : 'text-gray-500 hover:text-gray-900'}`}>
           <Truck className="w-4 h-4" /> Delivery
         </button>
-        <button type="button" onClick={() => setIsPickup(true)} className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${isPickup ? 'bg-white text-gray-900 shadow-sm border border-gray-200/50' : 'text-gray-500 hover:text-gray-900'}`}>
+        <button type="button" onClick={() => handlePickupToggle(true)} className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${isPickup ? 'bg-white text-gray-900 shadow-sm border border-gray-200/50' : 'text-gray-500 hover:text-gray-900'}`}>
           <Store className="w-4 h-4" /> Retirar no Balcão
         </button>
       </div>
@@ -124,15 +187,28 @@ export function CheckoutDeliveryForm({
       {!isPickup ? (
         <div className="space-y-4 animate-fade-in-up">
           
-          {/* CAMPO: CEP COM BUSCA */}
+          {/* MENSAGENS DE ERRO OU SUCESSO DO FRETE */}
+          {deliveryErrorMsg && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 text-red-600 text-sm">
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+              <p className="font-medium">{deliveryErrorMsg}</p>
+            </div>
+          )}
+          {deliverySuccessMsg && (
+            <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg flex items-center gap-2 text-teal-700 text-sm">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <p className="font-medium">{deliverySuccessMsg}</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1.5">CEP de Entrega *</label>
               <div className="relative">
                 <input 
                   required={!isPickup} 
-                  type="tel" // 'tel' abre o teclado numérico no celular, melhorando a UX
-                  maxLength={9} // Limite da máscara (8 números + 1 traço)
+                  type="tel" 
+                  maxLength={9} 
                   placeholder="00000-000" 
                   value={deliveryCep} 
                   onChange={handleCepChange} 
@@ -148,20 +224,34 @@ export function CheckoutDeliveryForm({
               </div>
               {cepError && <p className="text-xs text-red-500 mt-1 font-medium">{cepError}</p>}
             </div>
-            
-            {/* Espaço vazio no grid no Desktop para empurrar os próximos campos para baixo */}
             <div className="hidden sm:block"></div>
           </div>
 
-          {/* CAMPOS PREENCHIDOS PELO CEP */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
             <div className="sm:col-span-8">
               <label className="block text-xs font-semibold text-gray-600 mb-1.5">Logradouro / Rua *</label>
               <input required={!isPickup} type="text" placeholder="Ex: Avenida Paulista" value={deliveryStreet} onChange={e => setDeliveryStreet(e.target.value)} className="w-full rounded-lg border border-gray-300 p-2.5 text-sm bg-gray-50 outline-none focus:border-teal-500 focus:bg-white focus:ring-1 focus:ring-teal-500 transition-colors" />
             </div>
-            <div className="sm:col-span-4">
+            <div className="sm:col-span-4 relative">
               <label className="block text-xs font-semibold text-gray-600 mb-1.5">Número *</label>
-              <input id="input-delivery-number" required={!isPickup} type="text" placeholder="Ex: 1000" value={deliveryNumber} onChange={e => setDeliveryNumber(e.target.value)} className="w-full rounded-lg border border-gray-300 p-2.5 text-sm bg-gray-50 outline-none focus:border-teal-500 focus:bg-white focus:ring-1 focus:ring-teal-500 transition-colors" />
+              <input 
+                id="input-delivery-number" 
+                required={!isPickup} 
+                type="text" 
+                placeholder="Ex: 1000" 
+                value={deliveryNumber} 
+                onChange={e => {
+                  setDeliveryNumber(e.target.value);
+                  setDeliveryBlocked(true); // Bloqueia até calcular novamente
+                }} 
+                onBlur={handleCalculateDelivery} // MÁGICA AQUI: Calcula ao sair do campo
+                className={`w-full rounded-lg border p-2.5 text-sm bg-gray-50 outline-none transition-colors ${deliveryErrorMsg ? 'border-red-300 focus:ring-1 focus:ring-red-500' : 'border-gray-300 focus:border-teal-500 focus:bg-white focus:ring-1 focus:ring-teal-500'}`} 
+              />
+              {isCalculatingDelivery && (
+                <div className="absolute right-3 top-9">
+                  <Loader2 className="h-4 w-4 animate-spin text-teal-600" />
+                </div>
+              )}
             </div>
           </div>
 
