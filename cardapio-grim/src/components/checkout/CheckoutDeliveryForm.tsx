@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { MapPin, Truck, Store, Loader2, Search, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 interface CheckoutDeliveryFormProps {
@@ -20,11 +20,9 @@ interface CheckoutDeliveryFormProps {
   setDeliveryState: (val: string) => void;
   deliveryInstructions: string;
   setDeliveryInstructions: (val: string) => void;
-  
-  // NOVAS PROPS PARA O CÁLCULO DE FRETE
   companyToken: string; 
   onDeliveryCalculated: (fee: number) => void; 
-  setDeliveryBlocked: (isBlocked: boolean) => void; // Avisa a página pai para bloquear o botão de Checkout
+  setDeliveryBlocked: (isBlocked: boolean) => void;
 }
 
 export function CheckoutDeliveryForm({ 
@@ -54,14 +52,17 @@ export function CheckoutDeliveryForm({
   const [isLoadingCep, setIsLoadingCep] = useState(false);
   const [cepError, setCepError] = useState('');
 
-  // ESTADOS DO CÁLCULO DE FRETE (Estes ficam aqui para controlar a UI do formulário)
+  // ESTADOS DO CÁLCULO DE FRETE
   const [isCalculatingDelivery, setIsCalculatingDelivery] = useState(false);
   const [deliveryErrorMsg, setDeliveryErrorMsg] = useState('');
   const [deliverySuccessMsg, setDeliverySuccessMsg] = useState('');
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://web-production-6e1d8.up.railway.app';
+  // RASTREADOR: Guarda a última combinação calculada para evitar loops infinitos
+  const lastCalculatedRef = useRef({ cep: '', number: '' });
 
-  // Lógica Robusta: Máscara e Busca automática do CEP
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://web-production-6e1d8.up.railway.app/api';
+
+  // Máscara e Busca automática do CEP
   const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     let rawValue = e.target.value.replace(/\D/g, ''); 
     
@@ -76,7 +77,6 @@ export function CheckoutDeliveryForm({
     
     setDeliveryCep(maskedValue);
     setCepError('');
-    // Ao mudar o CEP, reseta os cálculos anteriores
     setDeliveryErrorMsg('');
     setDeliverySuccessMsg('');
     setDeliveryBlocked(true); 
@@ -117,16 +117,32 @@ export function CheckoutDeliveryForm({
     }
   };
 
-  // NOVA LÓGICA: Calcula o frete com o Django + Google Maps
-  const handleCalculateDelivery = async () => {
-    // Só calcula se os dados mínimos existirem
-    if (!deliveryCep || !deliveryStreet || !deliveryNumber || !deliveryCity) return;
+  // Monta o endereço sem o CEP para evitar o centroide postal do Google
+  const getFullAddress = useCallback(() => {
+    if (!deliveryStreet || !deliveryNumber || !deliveryCity) return "";
+    
+    const parts = [];
+    parts.push(`${deliveryStreet}, ${deliveryNumber}`);
+    if (deliveryNeighborhood) parts.push(deliveryNeighborhood);
+    parts.push(`${deliveryCity} - ${deliveryState}`);    
+    parts.push('Brasil'); 
+    
+    return parts.join(', ');
+  }, [deliveryStreet, deliveryNumber, deliveryNeighborhood, deliveryCity, deliveryState]);
+
+  // Função que bate na API do Django
+  const handleCalculateDelivery = useCallback(async () => {
+    const fullAddress = getFullAddress();
+    if (!fullAddress) return;
+
+    // Trava para não recalcular se os dados forem exatamente os mesmos já calculados
+    if (lastCalculatedRef.current.cep === deliveryCep && lastCalculatedRef.current.number === deliveryNumber) {
+      return;
+    }
 
     setIsCalculatingDelivery(true);
     setDeliveryErrorMsg('');
     setDeliverySuccessMsg('');
-
-    const fullAddress = `${deliveryStreet}, ${deliveryNumber}, ${deliveryCity} - ${deliveryState}, ${deliveryCep}`;
 
     try {
       const response = await fetch(`${API_BASE_URL}/orders/${companyToken}/calculate-delivery/`, {
@@ -138,13 +154,16 @@ export function CheckoutDeliveryForm({
       const data = await response.json();
 
       if (response.ok) {
+        // Marca que este CEP e Número já foram calculados com sucesso
+        lastCalculatedRef.current = { cep: deliveryCep, number: deliveryNumber };
+
         onDeliveryCalculated(data.taxa_frete);
-        setDeliverySuccessMsg(`Distância: ${data.distancia_texto} - Taxa de Entrega: R$ ${data.taxa_frete.toFixed(2).replace('.', ',')}`);
-        setDeliveryBlocked(false); // Libera o checkout
+        setDeliverySuccessMsg(`Distância: ${data.distancia_texto} - Taxa: R$ ${data.taxa_frete.toFixed(2).replace('.', ',')}`);
+        setDeliveryBlocked(false); 
       } else {
         setDeliveryErrorMsg(data.error || 'Fora da área de cobertura.');
         onDeliveryCalculated(0);
-        setDeliveryBlocked(true); // Bloqueia o checkout
+        setDeliveryBlocked(true); 
       }
     } catch (error) {
       console.error("Erro na API de frete:", error);
@@ -153,19 +172,37 @@ export function CheckoutDeliveryForm({
     } finally {
       setIsCalculatingDelivery(false);
     }
-  };
+  }, [getFullAddress, deliveryCep, deliveryNumber, companyToken, onDeliveryCalculated, setDeliveryBlocked, API_BASE_URL]);
 
-  // Se o cliente trocar para Retirada, libera o checkout e zera a taxa
+  // Dispara o cálculo apenas uma vez quando o usuário termina de preencher os campos essenciais
+  useEffect(() => {
+    if (isPickup) return;
+
+    if (deliveryCep.length === 9 && deliveryNumber.trim() !== '' && deliveryStreet !== '') {
+      // Evita disparar se já calculou exatamente estes dados
+      if (lastCalculatedRef.current.cep === deliveryCep && lastCalculatedRef.current.number === deliveryNumber) {
+        return;
+      }
+
+      const delayDebounceFn = setTimeout(() => {
+        handleCalculateDelivery();
+      }, 800);
+
+      return () => clearTimeout(delayDebounceFn);
+    }
+  }, [deliveryCep, deliveryNumber, deliveryStreet, isPickup, handleCalculateDelivery]);
+
+  // Controle do Retirar no Balcão vs Delivery
   const handlePickupToggle = (pickup: boolean) => {
     setIsPickup(pickup);
     if (pickup) {
       setDeliveryErrorMsg('');
+      setDeliverySuccessMsg('');
       setDeliveryBlocked(false);
       onDeliveryCalculated(0);
     } else {
       setDeliveryBlocked(true);
-      // Se já tiver os dados, recalcula
-      if (deliveryNumber && deliveryCep) handleCalculateDelivery();
+      if (deliveryNumber && deliveryCep.length === 9) handleCalculateDelivery();
     }
   };
 
@@ -242,9 +279,10 @@ export function CheckoutDeliveryForm({
                 value={deliveryNumber} 
                 onChange={e => {
                   setDeliveryNumber(e.target.value);
-                  setDeliveryBlocked(true); // Bloqueia até calcular novamente
+                  setDeliveryBlocked(true); 
+                  setDeliverySuccessMsg(''); 
+                  setDeliveryErrorMsg('');
                 }} 
-                onBlur={handleCalculateDelivery} // MÁGICA AQUI: Calcula ao sair do campo
                 className={`w-full rounded-lg border p-2.5 text-sm bg-gray-50 outline-none transition-colors ${deliveryErrorMsg ? 'border-red-300 focus:ring-1 focus:ring-red-500' : 'border-gray-300 focus:border-teal-500 focus:bg-white focus:ring-1 focus:ring-teal-500'}`} 
               />
               {isCalculatingDelivery && (

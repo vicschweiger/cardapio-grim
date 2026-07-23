@@ -14,9 +14,26 @@ interface CheckoutSummaryProps {
   isSubmitting: boolean;
   isStoreOpen: boolean;
   formatCurrency: (val: number) => string;
+  // NOVA PROP ADICIONADA AQUI:
+  isDeliveryBlocked: boolean;
 }
 
-export function CheckoutSummary({ cart, subtotal, deliveryFee, discountValue, totalAmount, appliedCoupon, couponCodeInput, setCouponCodeInput, handleApplyCheckoutCoupon, handleRemoveCheckoutCoupon, isSubmitting, isStoreOpen, formatCurrency }: CheckoutSummaryProps) {
+export function CheckoutSummary({ 
+  cart, 
+  subtotal, 
+  deliveryFee, 
+  discountValue, 
+  totalAmount, 
+  appliedCoupon, 
+  couponCodeInput, 
+  setCouponCodeInput, 
+  handleApplyCheckoutCoupon, 
+  handleRemoveCheckoutCoupon, 
+  isSubmitting, 
+  isStoreOpen, 
+  formatCurrency,
+  isDeliveryBlocked // <--- Recebendo a prop aqui
+}: CheckoutSummaryProps) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col gap-4">
       <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2 border-b border-gray-100 pb-3">
@@ -40,7 +57,7 @@ export function CheckoutSummary({ cart, subtotal, deliveryFee, discountValue, to
         })}
       </div>
 
-      <div className="pt-2 border-t border-gray-100">
+      <div className="pt-2 border-t border-gray-100 hidden">
         <label className="block text-xs font-bold text-gray-700 mb-2 uppercase tracking-wide">Cupom de Desconto</label>
         {appliedCoupon ? (
           <div className="flex items-center justify-between bg-green-50 border border-green-200 p-3 rounded-xl text-sm">
@@ -85,8 +102,20 @@ export function CheckoutSummary({ cart, subtotal, deliveryFee, discountValue, to
       </div>
       
       <div className="hidden lg:block">
-        <button type="submit" form="checkout-form" disabled={isSubmitting || !isStoreOpen} className="w-full bg-teal-600 text-white rounded-xl py-3.5 font-bold hover:bg-teal-700 disabled:opacity-50 transition-colors shadow-md flex items-center justify-center gap-2 cursor-pointer">
-          {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirmar e Enviar Pedido"}
+        {/* O BOTÃO AGORA BLOQUEIA SE A ESTIVER FORA DA ÁREA (isDeliveryBlocked) */}
+        <button 
+          type="submit" 
+          form="checkout-form" 
+          disabled={isSubmitting || !isStoreOpen || isDeliveryBlocked} 
+          className="w-full bg-teal-600 text-white rounded-xl py-3.5 font-bold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md flex items-center justify-center gap-2 cursor-pointer"
+        >
+          {isSubmitting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : isDeliveryBlocked ? (
+            "Endereço Fora da Área de Entrega"
+          ) : (
+            "Confirmar e Enviar Pedido"
+          )}
         </button>
       </div>
     </div>

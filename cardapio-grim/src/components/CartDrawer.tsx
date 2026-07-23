@@ -6,9 +6,11 @@ interface CartDrawerProps {
   cart: CartItem[];
   theme: Theme;
   companySlug: string;
+  deliveryFee: number;
+  isPickup: boolean;
 }
 
-const CartDrawer = ({ cart, theme, companySlug }: CartDrawerProps) => {
+const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup }: CartDrawerProps) => {
   const [isOpen, setIsOpen] = useState(false);
   
   // Estados para o Cupom
@@ -27,25 +29,28 @@ const CartDrawer = ({ cart, theme, companySlug }: CartDrawerProps) => {
     return sum + validPrice * item.quantity;
   }, 0);
 
-  // ==========================================
-  // CONFIGURAÇÃO DE TAXAS (MOCKS)
-  // Futuramente, esses valores podem vir da API (ex: data.delivery_fee, data.service_fee)
-  // ==========================================
-  const deliveryFee = 4.90; // Exemplo: R$ 4,90 de entrega
-  const serviceFee = 0.00;  // Exemplo: R$ 0,00 (Isento no momento)
+  const serviceFee = 0.00;  // Isento
 
   // Desconto de 10% aplicado apenas sobre o SUBTOTAL (taxas não entram no desconto)
   const discountValue = appliedCoupon ? subTotalValue * 0.10 : 0; 
   
+  // Se for retirada, a taxa de entrega é sempre 0 no cálculo final
+  const effectiveDeliveryFee = isPickup ? 0 : deliveryFee;
+
   // Matemática Final: Subtotal + Entrega + Serviço - Desconto
-  const totalValue = subTotalValue + deliveryFee + serviceFee - discountValue;
+  const totalValue = subTotalValue + effectiveDeliveryFee + serviceFee - discountValue;
 
   // Formatadores de Moeda e Texto
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
   const formattedSubTotal = formatCurrency(subTotalValue);
-  const formattedDelivery = deliveryFee > 0 ? formatCurrency(deliveryFee) : 'Grátis';
+  
+  // Correção aplicada: Se for pickup, mostra 'Retirada na Loja'. Senão, avalia se é maior que 0 ou Grátis.
+  const formattedDelivery = isPickup 
+    ? 'Retirada na Loja' 
+    : (deliveryFee > 0 ? formatCurrency(deliveryFee) : 'Grátis');
+
   const formattedService = serviceFee > 0 ? formatCurrency(serviceFee) : 'Isento';
   const formattedDiscount = formatCurrency(discountValue);
   const formattedTotal = formatCurrency(totalValue);
@@ -65,15 +70,15 @@ const CartDrawer = ({ cart, theme, companySlug }: CartDrawerProps) => {
 
   const handleCheckout = () => {
     navigate(`/${companySlug}/checkout`, { 
-      // Enviamos o relatório completo da matemática para a próxima tela
       state: { 
         cart, 
         subTotal: subTotalValue, 
-        deliveryFee,
+        deliveryFee: effectiveDeliveryFee,
         serviceFee,
         discount: discountValue, 
         total: totalValue, 
-        coupon: appliedCoupon 
+        coupon: appliedCoupon,
+        isPickup 
       } 
     });
   };
@@ -221,10 +226,10 @@ const CartDrawer = ({ cart, theme, companySlug }: CartDrawerProps) => {
                   <span className="text-gray-800 font-medium">{formattedSubTotal}</span>
                 </div>
 
-                {/* Taxa de Entrega */}
+                {/* Taxa de Entrega / Retirada em Roxo se for pickup */}
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500">Taxa de entrega</span>
-                  <span className={deliveryFee > 0 ? "text-gray-800 font-medium" : "text-green-600 font-bold"}>
+                  <span className={isPickup ? "text-purple-700 font-bold" : (deliveryFee > 0 ? "text-gray-800 font-medium" : "text-green-600 font-bold")}>
                     {formattedDelivery}
                   </span>
                 </div>
@@ -233,7 +238,6 @@ const CartDrawer = ({ cart, theme, companySlug }: CartDrawerProps) => {
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500 flex items-center gap-1.5">
                     Taxa de serviço
-                    {/* Badge sutil explicando a isenção ou que taxa é essa */}
                     <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full font-medium">Info</span>
                   </span>
                   <span className={serviceFee > 0 ? "text-gray-800 font-medium" : "text-green-600 font-bold"}>

@@ -9,9 +9,12 @@ import ProductList from '../components/ProductList.tsx';
 import CartDrawer from '../components/CartDrawer.tsx';
 import Spinner from '../components/Spinner.tsx';
 import NotFound from '../pages/NotFound.tsx';
+import { DeliveryLookupModal } from '../components/DeliveryLookupModal.tsx';
 
 // Contexto
 import { CatalogContext } from '../context/CatalogContext.tsx';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://web-production-6e1d8.up.railway.app/api';
 
 const MenuPage = () => {
   const { company_slug } = useParams<{ company_slug: string }>();
@@ -33,12 +36,39 @@ const MenuPage = () => {
 
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
 
-  // Busca inicial do Catálogo (o Polling de 15s agora roda automaticamente no Contexto)
+  // ESTADOS DO MODAL E FRETE
+  const [isLookupModalOpen, setIsLookupModalOpen] = useState(true);
+  const [pastOrders, setPastOrders] = useState<any[]>([]);
+  const [deliveryFee, setDeliveryFee] = useState<number>(0);
+
+  // Busca inicial do Catálogo
   useEffect(() => {
     if (company_slug) {
       fetchCatalog(company_slug);
     }
   }, [company_slug, fetchCatalog]);
+
+  // Busca pedidos anteriores da empresa para cruzar com o telefone digitado
+  useEffect(() => {
+    const fetchCompanyOrders = async () => {
+      if (!company_slug) return;
+      try {
+        const response = await fetch(`${API_BASE_URL}/orders/${company_slug}/`);
+        if (response.ok) {
+          const data = await response.json();
+          setPastOrders(data);
+        }
+      } catch (e) {
+        console.error("Falha ao buscar histórico de pedidos", e);
+      }
+    };
+    fetchCompanyOrders();
+  }, [company_slug]);
+
+  const handleDeliveryCalculated = (fee: number, isPickup: boolean) => {
+    setDeliveryFee(isPickup ? 0 : fee);
+    setIsLookupModalOpen(false);
+  };
 
   // Define a primeira categoria como selecionada automaticamente ao carregar
   useEffect(() => {
@@ -47,7 +77,6 @@ const MenuPage = () => {
     }
   }, [catalog, selectedCategory]);
 
-  // Filtra os produtos e FORMATA o nome das categorias, produtos e descrições para primeira letra maiúscula
   const formattedCategories = useMemo(() => {
     if (!catalog) return [];
     return catalog.categories.map(cat => ({
@@ -91,20 +120,22 @@ const MenuPage = () => {
       className="min-h-screen font-sans transition-colors duration-300 relative overflow-hidden" 
       style={{ backgroundColor }}
     >
-      {/* DECORAÇÃO LATERAL (Aparece apenas em Desktop) */}
-      <div className="hidden lg:block fixed left-0 top-0 w-64 h-full pointer-events-none opacity-5">
-        <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] repeat"></div>
-      </div>
-      <div className="hidden lg:block fixed right-0 top-0 w-64 h-full pointer-events-none opacity-5">
-        <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] repeat"></div>
-      </div>
+      {/* COMPONENTE DA TELA INICIAL (MODAL DE IDENTIFICAÇÃO E RETIRADA) */}
+      <DeliveryLookupModal 
+        isOpen={isLookupModalOpen}
+        onClose={() => setIsLookupModalOpen(false)}
+        pastOrders={pastOrders}
+        companySlug={company_slug!}
+        onDeliveryCalculated={handleDeliveryCalculated}
+        apiBaseUrl={API_BASE_URL}
+      />
 
       {/* HEADER DINÂMICO */}
       <div className="w-full bg-white/5 shadow-sm relative z-10">
         <Header
           name={catalog.name}
           coverImage={catalog.cover_image}
-          logoUrl={catalog.logo_url} // <-- ESSA LINHA PRECISA ESTAR AQUI!
+          logoUrl={catalog.logo_url}
           isOpen={catalog.is_open}
         />
       </div>
@@ -112,7 +143,6 @@ const MenuPage = () => {
       {/* CORPO PRINCIPAL */}
       <main className="max-w-3xl mx-auto w-full px-4 sm:px-6 pt-4 pb-32 animate-fade-in-up gap-5 flex flex-col relative z-10 min-h-screen shadow-2xl shadow-black/5"> 
         
-        {/* Se a loja estiver fechada, exibe o aviso antes dos produtos */}
         {!catalog.is_open && (
           <div className="rounded-lg bg-red-50 border border-red-100 p-4 text-center">
             <p className="text-sm font-medium text-red-800">
@@ -121,7 +151,6 @@ const MenuPage = () => {
           </div>
         )}
         
-        {/* NAVEGAÇÃO STICKY DE CATEGORIAS */}
         <div 
           className="sticky top-2 z-30 w-full h-full shadow-sm/30 backdrop-blur-md transition-all border border-stone-200/40 rounded-xl"
           style={{ backgroundColor: `${backgroundColor}E6` }} 
@@ -134,7 +163,6 @@ const MenuPage = () => {
           />
         </div>
         
-        {/* LISTA DE PRODUTOS */}
         <div className="min-h-[50vh] mt-2">
           <ProductList 
             products={filteredProducts}
@@ -147,11 +175,12 @@ const MenuPage = () => {
 
       </main>
 
-      {/* CARRINHO FLUTUANTE */}
+      {/* CARRINHO COM A TAXA DE ENTREGA */}
       <CartDrawer 
         cart={cart} 
         theme={catalog.theme} 
         companySlug={company_slug!} 
+        deliveryFee={deliveryFee} 
       />
     </div>
   );
