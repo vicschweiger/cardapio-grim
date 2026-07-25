@@ -23,6 +23,7 @@ export interface CatalogData {
   theme: Theme;
   logo_url?: string;
   categories: Category[];
+  min_order?: number;
 }
 
 export interface CartItem extends Product {

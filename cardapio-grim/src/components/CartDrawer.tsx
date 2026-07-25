@@ -8,9 +8,12 @@ interface CartDrawerProps {
   companySlug: string;
   deliveryFee: number;
   isPickup: boolean;
+  customerAddressInfo?: any;
+  customerName?: string;
+  customerPhone?: string;
 }
 
-const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup }: CartDrawerProps) => {
+const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerAddressInfo, customerName, customerPhone }: CartDrawerProps) => {
   const [isOpen, setIsOpen] = useState(false);
   
   // Estados para o Cupom
@@ -22,40 +25,27 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup }: CartDra
   // 1. Cálculos de Carrinho e Taxas
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   
-  // 🛡️ Segurança: Garante que o preço seja formatado corretamente
   const subTotalValue = cart.reduce((sum, item) => {
     const itemPrice = typeof item.price === 'string' ? parseFloat(item.price) : Number(item.price);
     const validPrice = isNaN(itemPrice) ? 0 : itemPrice;
     return sum + validPrice * item.quantity;
   }, 0);
 
-  const serviceFee = 0.00;  // Isento
+  const serviceFee = 0.00;
 
-  // Desconto de 10% aplicado apenas sobre o SUBTOTAL (taxas não entram no desconto)
   const discountValue = appliedCoupon ? subTotalValue * 0.10 : 0; 
-  
-  // Se for retirada, a taxa de entrega é sempre 0 no cálculo final
   const effectiveDeliveryFee = isPickup ? 0 : deliveryFee;
-
-  // Matemática Final: Subtotal + Entrega + Serviço - Desconto
   const totalValue = subTotalValue + effectiveDeliveryFee + serviceFee - discountValue;
 
-  // Formatadores de Moeda e Texto
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
   const formattedSubTotal = formatCurrency(subTotalValue);
-  
-  // Correção aplicada: Se for pickup, mostra 'Retirada na Loja'. Senão, avalia se é maior que 0 ou Grátis.
-  const formattedDelivery = isPickup 
-    ? 'Retirada na Loja' 
-    : (deliveryFee > 0 ? formatCurrency(deliveryFee) : 'Grátis');
-
+  const formattedDelivery = isPickup ? 'Retirada na Loja' : (deliveryFee > 0 ? formatCurrency(deliveryFee) : 'Grátis');
   const formattedService = serviceFee > 0 ? formatCurrency(serviceFee) : 'Isento';
   const formattedDiscount = formatCurrency(discountValue);
   const formattedTotal = formatCurrency(totalValue);
 
-  // 2. Funções de Ação
   const handleApplyCoupon = () => {
     if (couponCode.trim().length > 0) {
       setAppliedCoupon(couponCode.trim().toUpperCase());
@@ -74,16 +64,18 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup }: CartDra
         cart, 
         subTotal: subTotalValue, 
         deliveryFee: effectiveDeliveryFee,
-        serviceFee,
+        serviceFee: serviceFee,
         discount: discountValue, 
         total: totalValue, 
         coupon: appliedCoupon,
-        isPickup 
+        isPickup,
+        customerAddressInfo, // <--- GARANTINDO O ENVIO DO ENDEREÇO
+        customerName,        // <--- GARANTINDO O ENVIO DO NOME
+        customerPhone        // <--- GARANTINDO O ENVIO DO TELEFONE
       } 
     });
   };
 
-  // 3. Renderização Condicional
   if (totalItems === 0) return null;
 
   const primaryColor = (theme as any).primary || '#27272a';
@@ -118,7 +110,6 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup }: CartDra
           
           <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
             
-            {/* Cabeçalho */}
             <div className="flex items-center justify-between p-6 border-b border-gray-100 bg-white shrink-0">
               <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
                 <span className="text-2xl" style={{ color: primaryColor }}>🛍️</span>
@@ -127,16 +118,12 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup }: CartDra
               <button
                 onClick={() => setIsOpen(false)}
                 className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700"
-                aria-label="Fechar carrinho"
               >
                 ✕
               </button>
             </div>
 
-            {/* Lista de Itens & Cupons (Scroll) */}
             <div className="flex-1 overflow-y-auto p-5 space-y-6 bg-gray-50/50">
-              
-              {/* Produtos */}
               <div className="space-y-4">
                 {cart.map((item) => {
                   const itemPrice = typeof item.price === 'string' ? parseFloat(item.price) : Number(item.price);
@@ -169,28 +156,19 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup }: CartDra
                 })}
               </div>
 
-              {/* ÁREA DE CUPOM */}
-              <div className="pt-4 border-t border-gray-200/60">
+              <div className="hidden pt-4 border-t border-gray-200/60">
                 <h3 className="text-sm font-bold text-gray-800 mb-3 uppercase tracking-wide">Cupons</h3>
                 
                 {appliedCoupon ? (
                   <div className="flex items-center justify-between bg-green-50 border border-green-100 p-4 rounded-2xl transition-all animate-in fade-in">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-lg">
-                        🏷️
-                      </div>
+                      <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-lg">🏷️</div>
                       <div>
                         <p className="text-sm font-bold text-green-800">{appliedCoupon}</p>
                         <p className="text-xs font-medium text-green-600">Cupom aplicado com sucesso!</p>
                       </div>
                     </div>
-                    <button 
-                      onClick={handleRemoveCoupon}
-                      className="text-gray-400 hover:text-red-500 font-bold p-2 transition-colors"
-                      aria-label="Remover cupom"
-                    >
-                      ✕
-                    </button>
+                    <button onClick={handleRemoveCoupon} className="text-gray-400 hover:text-red-500 font-bold p-2 transition-colors">✕</button>
                   </div>
                 ) : (
                   <div className="flex gap-2">
@@ -213,20 +191,15 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup }: CartDra
                   </div>
                 )}
               </div>
-
             </div>
 
-            {/* Rodapé - EXTRATO COMPLETO DA CONTA */}
             <div className="border-t border-gray-200 bg-white p-6 pb-8 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] shrink-0 z-10">
-              
               <div className="space-y-3 mb-5">
-                {/* Subtotal */}
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500">Subtotal</span>
                   <span className="text-gray-800 font-medium">{formattedSubTotal}</span>
                 </div>
 
-                {/* Taxa de Entrega / Retirada em Roxo se for pickup */}
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500">Taxa de entrega</span>
                   <span className={isPickup ? "text-purple-700 font-bold" : (deliveryFee > 0 ? "text-gray-800 font-medium" : "text-green-600 font-bold")}>
@@ -234,7 +207,6 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup }: CartDra
                   </span>
                 </div>
 
-                {/* Taxa de Serviço */}
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500 flex items-center gap-1.5">
                     Taxa de serviço
@@ -245,22 +217,16 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup }: CartDra
                   </span>
                 </div>
 
-                {/* Desconto do Cupom */}
                 {appliedCoupon && (
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-green-600 font-bold flex items-center gap-1">
-                      Desconto
-                    </span>
+                    <span className="text-green-600 font-bold flex items-center gap-1">Desconto</span>
                     <span className="text-green-600 font-bold">-{formattedDiscount}</span>
                   </div>
                 )}
                 
-                {/* Linha Divisória */}
                 <div className="border-t border-dashed border-gray-200 pt-3 flex justify-between items-center mt-2">
                   <span className="text-gray-800 font-bold text-lg">Total a pagar</span>
-                  <span className="text-2xl font-extrabold text-gray-900">
-                    {formattedTotal}
-                  </span>
+                  <span className="text-2xl font-extrabold text-gray-900">{formattedTotal}</span>
                 </div>
               </div>
               
