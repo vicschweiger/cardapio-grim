@@ -18,6 +18,7 @@ interface CheckoutSummaryProps {
   isDeliveryBlocked: boolean;
   inactiveCartItems?: string[];
   removeFromCart: (itemName: string) => void;
+  isChangeInvalid?: boolean; // <--- NOVA PROP ADICIONADA AQUI
 }
 
 export function CheckoutSummary({ 
@@ -36,7 +37,8 @@ export function CheckoutSummary({
   formatCurrency,
   isDeliveryBlocked,
   inactiveCartItems = [],
-  removeFromCart
+  removeFromCart,
+  isChangeInvalid = false // <--- ADICIONADO AQUI
 }: CheckoutSummaryProps) {
 
   const [pendingRemoval, setPendingRemoval] = useState<string[]>([]);
@@ -165,13 +167,15 @@ export function CheckoutSummary({
           <button 
             type="submit" 
             form="checkout-form" 
-            disabled={isSubmitting || !isStoreOpen || isDeliveryBlocked} 
+            disabled={isSubmitting || !isStoreOpen || isDeliveryBlocked || isChangeInvalid} 
             className="w-full bg-teal-600 text-white rounded-xl py-3.5 font-bold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md flex items-center justify-center gap-2 cursor-pointer"
           >
             {isSubmitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : isDeliveryBlocked ? (
               "Endereço Fora da Área de Entrega"
+            ) : isChangeInvalid ? (
+              "Valor do Troco Inválido" // <--- MENSAGEM DINÂMICA
             ) : (
               "Confirmar e Enviar Pedido"
             )}

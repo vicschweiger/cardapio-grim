@@ -44,7 +44,6 @@ export default function CheckoutPage() {
     let pickup = navState?.isPickup || false;
     let fee = navState?.deliveryFee || 0;
     
-    // 1. Tenta pegar o endereço vindo do Carrinho
     let address = navState?.customerAddressInfo;
 
     try {
@@ -52,8 +51,6 @@ export default function CheckoutPage() {
       if (stored) {
         const parsed = JSON.parse(stored);
         
-        // 2. CORREÇÃO DO BUG: Se não veio endereço do carrinho, tenta pegar da sessão.
-        // Mas SÓ ACEITA se for um OBJETO (ignora strings de caches velhos)
         if (!address || typeof address !== 'object' || Object.keys(address).length === 0) {
           if (parsed.addressInfo && typeof parsed.addressInfo === 'object' && !Array.isArray(parsed.addressInfo)) {
             address = parsed.addressInfo;
@@ -69,9 +66,20 @@ export default function CheckoutPage() {
       console.error("Erro ao ler sessão no checkout", e);
     }
 
-    // 3. Garantia absoluta: Se address for string ou null, vira objeto vazio para não quebrar o formulário
     if (typeof address !== 'object' || address === null) {
       address = {};
+    }
+
+    if (!address.street && address.full) {
+      const parts = address.full.split(','); 
+      address.street = parts[0]?.trim() || address.full;
+      
+      if (parts[1]) {
+        address.number = parts[1].trim().split(/[ \-]/)[0] || '';
+      }
+      
+      const cepMatch = address.full.match(/\d{5}-?\d{3}/);
+      if (cepMatch) address.cep = cepMatch[0];
     }
 
     return {
@@ -85,7 +93,7 @@ export default function CheckoutPage() {
     };
   });
 
-  // ESTADOS DOS FORMULÁRIOS - Agora inicializam perfeitamente lendo o objeto `address`
+  // ESTADOS DOS FORMULÁRIOS
   const [customerName, setCustomerName] = useState(capitalizeName(initialData.name));
   const [customerPhone, setCustomerPhone] = useState(initialData.phone);
   const [isPickup, setIsPickup] = useState(initialData.pickup);
@@ -113,7 +121,7 @@ export default function CheckoutPage() {
   const [deliveryFee, setDeliveryFee] = useState(initialData.fee);
   const [isDeliveryBlocked, setDeliveryBlocked] = useState(!(initialData.fee > 0 || initialData.pickup));
 
-  // 🔴 CÁLCULO INTELIGENTE DE PRODUTOS INATIVOS (EM TEMPO REAL)
+  // 🔴 CÁLCULO INTELIGENTE DE PRODUTOS INATIVOS
   const inactiveCartItems = useMemo(() => {
     if (!catalog || !cart) return [];
     const inactive: string[] = [];
@@ -155,6 +163,10 @@ export default function CheckoutPage() {
   const discountValue = useMemo(() => appliedCoupon ? subtotal * 0.10 : initialData.discount, [appliedCoupon, subtotal, initialData.discount]);
   const totalAmount = useMemo(() => Math.max(0, subtotal + (isPickup ? 0 : deliveryFee) + serviceFee - discountValue), [subtotal, deliveryFee, isPickup, serviceFee, discountValue]);
 
+  // VALIDAÇÃO DO TROCO 
+  const changeForNumber = changeForStr ? parseFloat(changeForStr.replace(/\./g, '').replace(',', '.')) : 0;
+  const isChangeInvalid = paymentMethod === 'money' && changeForStr.length > 0 && changeForNumber < totalAmount;
+
   const getChangeForAsNumber = () => {
     if (!changeForStr) return 0;
     const val = parseFloat(changeForStr.replace(/\./g, '').replace(',', '.'));
@@ -187,6 +199,7 @@ export default function CheckoutPage() {
     if (customerPhone.replace(/\D/g, '').length < 10) return alert("Por favor, insira um número de celular válido.");
     if (!isPickup && isDeliveryBlocked) return alert("Por favor, verifique o seu endereço. A entrega não está disponível para esta localização.");
     if (inactiveCartItems.length > 0) return alert("Por favor, remova os itens indisponíveis do carrinho antes de finalizar o pedido.");
+    if (isChangeInvalid) return alert("Por favor, digite um valor de troco válido.");
 
     try {
       setIsSubmitting(true);
@@ -328,12 +341,20 @@ export default function CheckoutPage() {
             setDeliveryBlocked={setDeliveryBlocked}
           />
           
-          <CheckoutPaymentForm paymentMethod={paymentMethod} setPaymentMethod={setPaymentMethod} cardType={cardType} setCardType={setCardType} changeForStr={changeForStr} handleChangeForInput={handleChangeForInput} />
+          <CheckoutPaymentForm 
+            paymentMethod={paymentMethod} 
+            setPaymentMethod={setPaymentMethod} 
+            cardType={cardType} 
+            setCardType={setCardType} 
+            changeForStr={changeForStr} 
+            handleChangeForInput={handleChangeForInput} 
+            totalAmount={totalAmount} 
+          />
 
           <div className="lg:hidden">
             <button 
               type="submit" 
-              disabled={isSubmitting || catalog?.is_open === false || (!isPickup && isDeliveryBlocked) || inactiveCartItems.length > 0} 
+              disabled={isSubmitting || catalog?.is_open === false || (!isPickup && isDeliveryBlocked) || inactiveCartItems.length > 0 || isChangeInvalid} 
               className="w-full bg-teal-600 text-white rounded-xl py-3.5 font-bold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
@@ -342,6 +363,8 @@ export default function CheckoutPage() {
                 "Remova itens indisponíveis"
               ) : (!isPickup && isDeliveryBlocked) ? (
                 "Endereço Fora de Área"
+              ) : isChangeInvalid ? (
+                "Valor do Troco Inválido" 
               ) : (
                 "Confirmar e Enviar Pedido"
               )}
@@ -358,6 +381,7 @@ export default function CheckoutPage() {
             isPickup={isPickup} isDeliveryBlocked={isDeliveryBlocked}
             inactiveCartItems={inactiveCartItems}
             removeFromCart={removeFromCart}
+            isChangeInvalid={isChangeInvalid}
           />
         </div>
       </div>
