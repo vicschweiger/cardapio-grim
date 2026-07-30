@@ -34,7 +34,7 @@ const MenuPage = () => {
     handleSubtractFromCart
   } = context;
 
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<number | string | null>(null);
 
   // 1. INICIALIZAÇÃO DA SESSÃO MAIS ROBUSTA
   const savedSession = useMemo(() => {
@@ -109,47 +109,70 @@ const MenuPage = () => {
 
   const handleOpenEditModal = () => setIsLookupModalOpen(true);
 
-  useEffect(() => {
-    if (catalog?.categories && catalog.categories.length > 0 && selectedCategory === null) {
-      setSelectedCategory(catalog.categories[0].id);
-    }
-  }, [catalog, selectedCategory]);
-
 const formattedCategories = useMemo(() => {
-    if (!catalog) return [];
+    if (!catalog || !catalog.categories) return [];
 
-    const categoryMap = new Map();
+    const categoryMap = new Map<string, Category>();
+    const promotionalProducts: Product[] = [];
 
+    // 1. Processa todas as categorias e produtos.
     catalog.categories.forEach(cat => {
-      // 1. Normaliza o nome da categoria (ex: "bebidas", " BEBIDAS ", "Bebidas" -> viram tudo "Bebidas")
-      const cleanName = cat.name ? cat.name.trim() : '';
-      const normalizedName = cleanName 
-        ? cleanName.charAt(0).toUpperCase() + cleanName.slice(1).toLowerCase() 
-        : '';
+        const cleanName = cat.name ? cat.name.trim() : '';
+        const normalizedCatName = cleanName 
+          ? cleanName.charAt(0).toUpperCase() + cleanName.slice(1).toLowerCase() 
+          : 'Outros';
 
-      // 2. Formata os produtos desta categoria
-      const formattedProducts = cat.products.map(prod => ({
-        ...prod,
-        name: prod.name ? prod.name.trim().charAt(0).toUpperCase() + prod.name.trim().slice(1).toLowerCase() : '',
-        description: prod.description ? prod.description.trim().charAt(0).toUpperCase() + prod.description.trim().slice(1) : ''
-      }));
+        const formattedProductsForCat = (cat.products || []).map(prod => {
+            const formattedProd = {
+                ...prod,
+                name: prod.name ? prod.name.trim().charAt(0).toUpperCase() + prod.name.trim().slice(1).toLowerCase() : '',
+                description: prod.description ? prod.description.trim().charAt(0).toUpperCase() + prod.description.trim().slice(1) : ''
+            };
 
-      // 3. A MÁGICA: Se a categoria já existe, junta os produtos. Se não, cria uma nova.
-      if (categoryMap.has(normalizedName)) {
-        const existingCat = categoryMap.get(normalizedName);
-        existingCat.products = [...existingCat.products, ...formattedProducts];
-      } else {
-        categoryMap.set(normalizedName, {
-          ...cat,
-          name: normalizedName,
-          products: formattedProducts
+            // 2. Se for promocional, coleta para a aba de promoções.
+            if (prod.is_promotional) {
+                promotionalProducts.push(formattedProd);
+            }
+            return formattedProd;
         });
-      }
+
+        // 3. Adiciona TODOS os produtos à sua categoria original (ou mescla se a categoria já existe)
+        if (categoryMap.has(normalizedCatName)) {
+            const existingCat = categoryMap.get(normalizedCatName)!;
+            existingCat.products.push(...formattedProductsForCat);
+        } else {
+            categoryMap.set(normalizedCatName, {
+                ...cat, // Mantém o ID e outras props da primeira ocorrência da categoria
+                name: normalizedCatName,
+                products: formattedProductsForCat
+            });
+        }
     });
 
-    // Converte o Mapa inteligente de volta para uma lista (Array)
-    return Array.from(categoryMap.values());
+    const regularCategories = Array.from(categoryMap.values()).filter(c => c.products.length > 0);
+    const finalCategories: (Category | {id: string, name: string, products: Product[]})[] = [...regularCategories];
+
+    // 4. Adiciona a aba virtual de "Promoções" no início, se houver produtos promocionais.
+    if (promotionalProducts.length > 0) {
+      const uniquePromoProducts = Array.from(new Map(promotionalProducts.map(p => [p.id, p])).values());
+      finalCategories.unshift({
+        id: 'promo-virtual-tab',
+        name: '🔥 Promoções',
+        products: uniquePromoProducts
+      });
+    }
+
+    return finalCategories as Category[];
   }, [catalog]);
+
+  useEffect(() => {
+    // Roda apenas se as categorias formatadas estiverem prontas e nenhuma categoria estiver selecionada.
+    if (formattedCategories.length > 0 && selectedCategory === null) {
+      // A lógica de ordenação no useMemo já garante que "Promoção" (se existir) será a primeira.
+      // Então, simplesmente selecionamos a primeira categoria da lista formatada.
+      setSelectedCategory(formattedCategories[0].id);
+    }
+  }, [formattedCategories, selectedCategory]);
 
   const filteredProducts = useMemo(() => {
     if (!formattedCategories || selectedCategory === null) return [];

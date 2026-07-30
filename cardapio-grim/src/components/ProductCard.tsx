@@ -19,13 +19,22 @@ export default function ProductCard({
 }: ProductCardProps) {
   
   // Formatação segura para moeda
-  const formatCurrency = (value: number | string) => {
-    const num = typeof value === 'string' ? parseFloat(value) : value;
+  const formatCurrency = (value: number | string | null | undefined) => {
+    const num = typeof value === 'string' ? parseFloat(value) : (value || 0);
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(isNaN(num) ? 0 : num);
   };
 
+  const isPromotional = product.is_promotional && product.original_price;
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex gap-4 transition-all hover:shadow-md hover:border-gray-200">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex gap-4 transition-all hover:shadow-md hover:border-gray-200 relative overflow-hidden">
+      
+      {/* SELO DE PROMOÇÃO */}
+      {isPromotional && (
+        <div className="absolute top-0 left-0 bg-red-500 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-br-lg z-20">
+          Promoção
+        </div>
+      )}
       
       {/* 1. ESPAÇO DEDICADO PARA A IMAGEM (Sempre visível) */}
       <div className="shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-lg overflow-hidden bg-gray-50 border border-gray-100 flex flex-col items-center justify-center relative">
@@ -67,9 +76,21 @@ export default function ProductCard({
         </div>
         
         <div className="flex items-center justify-between mt-3 gap-2">
-          <span className="font-bold text-gray-900 tracking-tight">
-            {formatCurrency(product.price)}
-          </span>
+          {/* PREÇO PROMOCIONAL E ORIGINAL */}
+          {isPromotional ? (
+            <div className="flex items-baseline gap-2">
+              <span className="font-bold text-lg text-red-600 tracking-tight">
+                {formatCurrency(product.price)}
+              </span>
+              <span className="text-xs text-gray-400 line-through">
+                {formatCurrency(product.original_price)}
+              </span>
+            </div>
+          ) : (
+            <span className="font-bold text-gray-900 tracking-tight">
+              {formatCurrency(product.price)}
+            </span>
+          )}
           
           {/* 3. CONTROLES DO CARRINHO */}
           <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200">

@@ -1,4 +1,4 @@
-import { createContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import { createContext, useState, useCallback, ReactNode, useEffect, useMemo } from 'react';
 import type { CatalogData, Product, CartItem } from '../types/index.tsx';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://web-production-6e1d8.up.railway.app/api';
@@ -17,13 +17,13 @@ export interface CatalogContextProps {
 export const CatalogContext = createContext<CatalogContextProps | null>(null);
 
 export const CatalogProvider = ({ children }: { children: ReactNode }) => {
-  const [catalog, setCatalog] = useState<CatalogData | null>(null);
+  const [catalogData, setCatalogData] = useState<CatalogData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [currentSlug, setCurrentSlug] = useState<string | null>(null);
 
-  // Busca os dados da loja (com modo "silencioso" para não piscar a tela)
+  // Fetch store catalog (with silent mode to prevent UI flickering)
   const fetchCatalog = useCallback(async (slug: string, silent = false) => {
     if (!silent) setLoading(true);
     if (!silent) setError(null);
@@ -38,7 +38,7 @@ export const CatalogProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('Ocorreu um erro ao buscar o cardápio.');
       }
       const data: CatalogData = await response.json();
-      setCatalog(data);
+      setCatalogData(data);
     } catch (err: any) {
       if (!silent) setError(err.message);
     } finally {
@@ -46,16 +46,19 @@ export const CatalogProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  // RADAR EM TEMPO REAL: Atualiza a loja a cada 15 segundos silenciosamente
+  // REAL-TIME RADAR: Silently updates store data every 15 seconds
   useEffect(() => {
     if (!currentSlug) return;
     const interval = setInterval(() => {
       fetchCatalog(currentSlug, true); 
-    }, 15000); // 15 segundos
+    }, 15000); // 15 seconds
     return () => clearInterval(interval);
   }, [currentSlug, fetchCatalog]);
 
-  // Adiciona ao carrinho global
+  // A lógica de formatação e ordenação de categorias foi centralizada na MenuPage.
+  const catalog = catalogData;
+
+  // Add item to global cart
   const handleAddToCart = useCallback((product: Product) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === product.id);
@@ -68,7 +71,7 @@ export const CatalogProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  // Remove do carrinho global
+  // Remove item from global cart
   const handleSubtractFromCart = useCallback((productId: string | number) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === productId);
@@ -83,7 +86,7 @@ export const CatalogProvider = ({ children }: { children: ReactNode }) => {
     });
   }, []);
 
-  // Limpa o carrinho
+  // Clear cart
   const clearCart = useCallback(() => {
     setCart([]);
   }, []);

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Phone, Search, Loader2, MapPin, Truck, Store, Edit2 } from 'lucide-react';
+import { Phone, Search, Loader2, MapPin, Truck, Store, Edit2, AlertCircle } from 'lucide-react';
 
 interface DeliveryLookupModalProps {
   isOpen: boolean;
@@ -57,7 +57,6 @@ export function DeliveryLookupModal({
       };
       
       setInitialResult({ customer_name: lastOrder.customer_name, address: addressInfo });
-      // Enviamos explicitamente o addressInfo construído aqui
       await handleRealFeeCalculation(addressInfo.full, addressInfo);
     } else {
       setInitialResult({ isNew: true });
@@ -105,7 +104,6 @@ export function DeliveryLookupModal({
         return;
       }
       
-      // Cria o objeto e já embute no state
       const addressInfo = { 
         street: data.logradouro, 
         number: initialNumber, 
@@ -117,8 +115,6 @@ export function DeliveryLookupModal({
       };
       
       setInitialResult((prev: any) => ({ ...prev, address: addressInfo }));
-      
-      // Enviamos explicitamente o addressInfo construído aqui
       await handleRealFeeCalculation(addressInfo.full, addressInfo);
 
     } catch (e) {
@@ -139,7 +135,6 @@ export function DeliveryLookupModal({
     setInitialError('');
   };
 
-  // A função agora OBRIGATÓRIAMENTE recebe e salva o objeto do endereço na resposta do cálculo
   const handleRealFeeCalculation = async (fullAddress: string, safeAddressObject: any) => {
     if (!companySlug || !fullAddress) {
       setInitialSearching(false);
@@ -160,18 +155,29 @@ export function DeliveryLookupModal({
           delivers: true,
           fee: data.taxa_frete,
           message: `Distância real: ${data.distancia_texto} (${data.distancia_km} km)`,
-          // Salva uma CÓPIA DE SEGURANÇA do endereço DENTRO do objeto de delivery
           safeAddress: safeAddressObject 
         };
         setInitialResult((prev: any) => ({ ...prev, delivery: deliveryInfo, address: safeAddressObject }));
       } else {
-        const deliveryInfo = {
-          delivers: false,
-          fee: 0,
-          message: data.error || 'Endereço fora da área de entrega.',
-          safeAddress: safeAddressObject
-        };
-        setInitialResult((prev: any) => ({ ...prev, delivery: deliveryInfo, address: safeAddressObject }));
+        if (data.error === "not_delivering") {
+          const deliveryInfo = {
+            delivers: false,
+            fee: 0,
+            isNotDelivering: true,
+            message: data.message,
+            storeAddress: data.store_address,
+            safeAddress: safeAddressObject
+          };
+          setInitialResult((prev: any) => ({ ...prev, delivery: deliveryInfo, address: safeAddressObject }));
+        } else {
+          const deliveryInfo = {
+            delivers: false,
+            fee: 0,
+            message: data.error || 'Endereço fora da área de entrega.',
+            safeAddress: safeAddressObject
+          };
+          setInitialResult((prev: any) => ({ ...prev, delivery: deliveryInfo, address: safeAddressObject }));
+        }
       }
     } catch (e) {
       setInitialError('Erro de conexão ao calcular o frete.');
@@ -192,15 +198,11 @@ export function DeliveryLookupModal({
   const handleConfirm = () => {
     const nameToPass = initialResult?.customer_name || ''; 
     const phoneToPass = initialPhone;
-
-    // A MÁGICA ESTÁ AQUI: Nós tentamos pegar o endereço principal. Se o React enlouqueceu e deletou,
-    // nós pegamos a cópia de segurança que salvamos dentro de 'delivery' no cálculo de frete!
     const guaranteedAddress = initialResult?.address || initialResult?.delivery?.safeAddress || null;
 
     if (selectedMode === 'pickup') {
       onDeliveryCalculated(0, true, null, nameToPass, phoneToPass);
     } else if (initialResult?.delivery?.delivers) {
-      // Usando a variável garantida aqui
       onDeliveryCalculated(initialResult.delivery.fee, false, guaranteedAddress, nameToPass, phoneToPass);
     }
   };
@@ -286,7 +288,7 @@ export function DeliveryLookupModal({
                   
                   {(initialResult.isNew || (initialResult.address === null && !initialResult.delivery)) && (
                     <div className="space-y-3 p-4 bg-gray-50 rounded-xl border border-gray-200 shadow-lg">
-                      <p className="font-semibold text-gray-800 text-sm">Por favor, informe seu endereço para calcular a taxa:</p>
+                      <p className="font-semibold text-gray-800 text-sm">Por favor, informe seu endereço para verificar a entrega:</p>
                       
                       <div className="grid grid-cols-12 gap-2">
                         {/* CEP */}
@@ -320,22 +322,46 @@ export function DeliveryLookupModal({
                       </div>
 
                       <button onClick={handleInitialCepSearch} disabled={initialSearching} className="w-full py-2.5 bg-slate-800 text-white rounded-lg hover:bg-slate-700 disabled:bg-slate-400 flex items-center justify-center gap-2 font-medium">
-                        {initialSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />} Buscar e Calcular
+                        {initialSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />} Verificar Entrega
                       </button>
                     </div>
                   )}
 
                   {initialResult.delivery && (
-                    <div className={`p-4 rounded-xl border-2 ${initialResult.delivery.delivers ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}>
-                      <div className="flex items-center gap-3">
-                        <Truck className={`h-8 w-8 shrink-0 ${initialResult.delivery.delivers ? 'text-green-600' : 'text-red-600'}`} />
+                    <div className={`p-4 rounded-xl border-2 ${initialResult.delivery.delivers ? 'border-green-500 bg-green-50' : 'border-amber-400 bg-amber-50'}`}>
+                      <div className="flex items-start gap-3">
+                        {initialResult.delivery.delivers ? (
+                          <Truck className="h-7 w-7 shrink-0 text-green-600 mt-0.5" />
+                        ) : (
+                          <AlertCircle className="h-7 w-7 shrink-0 text-amber-600 mt-0.5" />
+                        )}
                         <div>
-                          <p className={`text-base font-bold ${initialResult.delivery.delivers ? 'text-green-800' : 'text-red-800'}`}>
+                          <p className={`text-base font-bold ${initialResult.delivery.delivers ? 'text-green-800' : 'text-amber-900'}`}>
                             {initialResult.delivery.delivers 
-                              ? `Taxa de Entrega: R$ ${Number(initialResult.delivery.fee).toFixed(2).replace('.', ',')}`
-                              : 'Entrega Indisponível'}
+                              ? (Number(initialResult.delivery.fee) > 0 
+                                  ? `Taxa de Entrega: R$ ${Number(initialResult.delivery.fee).toFixed(2).replace('.', ',')}`
+                                  : 'Taxa de Entrega: Grátis')
+                              : 'Não estamos entregando no momento'}
                           </p>
-                          <p className="text-xs text-gray-600 mt-0.5">{initialResult.delivery.message}</p>
+                          <p className="text-xs text-gray-700 mt-1">
+                            {initialResult.delivery.message}
+                          </p>
+                          
+                          {initialResult.delivery.isNotDelivering && initialResult.delivery.storeAddress && (
+                            <div className="mt-3 pt-3 border-t border-amber-200/60 space-y-2">
+                              <p className="text-xs font-semibold text-amber-900">
+                                Endereço para retirada: <span className="font-normal">{initialResult.delivery.storeAddress}</span>
+                              </p>
+                              <a 
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(initialResult.delivery.storeAddress)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg shadow-sm transition-colors"
+                              >
+                                <MapPin className="w-3.5 h-3.5" /> Ver no Google Maps
+                              </a>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -360,7 +386,7 @@ export function DeliveryLookupModal({
           >
             {selectedMode === 'pickup' 
               ? "Avançar para o Cardápio (Retirada)" 
-              : (initialResult?.delivery?.delivers ? "Avançar para o Cardápio" : "Informe seu telefone e CEP acima")}
+              : (initialResult?.delivery?.delivers ? "Avançar para o Cardápio" : "Informe seu endereço acima")}
           </button>
         </div>
       </div>

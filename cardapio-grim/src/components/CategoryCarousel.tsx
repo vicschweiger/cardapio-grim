@@ -3,8 +3,8 @@ import type { Category, ThemeColors } from '../types/index.tsx';
 
 interface CategoryCarouselProps {
   categories: Category[];
-  selectedCategory: number | null;
-  onSelectCategory: (id: number) => void;
+  selectedCategory: number | string | null;
+  onSelectCategory: (id: number | string) => void;
   theme: ThemeColors;
 }
 
