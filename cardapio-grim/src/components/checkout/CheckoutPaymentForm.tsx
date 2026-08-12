@@ -1,4 +1,4 @@
-import { CreditCard, DollarSign, Coins } from 'lucide-react';
+import { CreditCard, DollarSign, Coins, WalletCards } from 'lucide-react';
 
 interface CheckoutPaymentFormProps {
   paymentMethod: 'money' | 'card' | 'pix' | 'mercadopago';
@@ -8,9 +8,10 @@ interface CheckoutPaymentFormProps {
   changeForStr: string;
   handleChangeForInput: (e: React.ChangeEvent<HTMLInputElement>) => void;
   totalAmount: number; // <--- NOVA PROP ADICIONADA AQUI
+  mercadoPagoEnabled?: boolean;
 }
 
-export function CheckoutPaymentForm({ paymentMethod, setPaymentMethod, cardType, setCardType, changeForStr, handleChangeForInput, totalAmount }: CheckoutPaymentFormProps) {
+export function CheckoutPaymentForm({ paymentMethod, setPaymentMethod, cardType, setCardType, changeForStr, handleChangeForInput, totalAmount, mercadoPagoEnabled = false }: CheckoutPaymentFormProps) {
   
   // Converte a string digitada para número para podermos comparar matematicamente
   const changeForNumber = changeForStr ? parseFloat(changeForStr.replace(/\./g, '').replace(',', '.')) : 0;
@@ -24,7 +25,7 @@ export function CheckoutPaymentForm({ paymentMethod, setPaymentMethod, cardType,
         <CreditCard className="w-4 h-4 text-teal-600" /> Método de Pagamento
       </h3>
       
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <label className={`flex items-center gap-3 border p-3 rounded-xl cursor-pointer transition-all ${paymentMethod === 'money' ? 'border-teal-500 bg-teal-50/20 text-teal-900 font-bold' : 'border-gray-200 hover:bg-gray-50'}`}>
           <input type="radio" name="payment_method_group" checked={paymentMethod === 'money'} onChange={() => setPaymentMethod('money')} className="hidden" />
           <DollarSign className="w-5 h-5 text-gray-500" /> Dinheiro
@@ -39,6 +40,13 @@ export function CheckoutPaymentForm({ paymentMethod, setPaymentMethod, cardType,
           <input type="radio" name="payment_method_group" checked={paymentMethod === 'pix'} onChange={() => setPaymentMethod('pix')} className="hidden" />
           <Coins className="w-5 h-5 text-gray-500" /> PIX
         </label>
+
+        {mercadoPagoEnabled && (
+          <label className={`flex items-center gap-3 border p-3 rounded-xl cursor-pointer transition-all ${paymentMethod === 'mercadopago' ? 'border-blue-500 bg-blue-50/30 text-blue-900 font-bold' : 'border-gray-200 hover:bg-gray-50'}`}>
+            <input type="radio" name="payment_method_group" checked={paymentMethod === 'mercadopago'} onChange={() => setPaymentMethod('mercadopago')} className="hidden" />
+            <WalletCards className="w-5 h-5 text-blue-500" /> Pagar online
+          </label>
+        )}
       </div>
 
       {paymentMethod === 'card' && (

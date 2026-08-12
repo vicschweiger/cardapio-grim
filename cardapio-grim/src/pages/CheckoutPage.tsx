@@ -1,4 +1,4 @@
-import { useState, useContext, useMemo, useEffect } from 'react';
+import { useState, useContext, useMemo, useEffect, useRef } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Store, Loader2, AlertCircle } from 'lucide-react';
 
@@ -116,6 +116,7 @@ export default function CheckoutPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderCreatedId, setOrderCreatedId] = useState<number | null>(null);
+  const checkoutIdempotencyKey = useRef(crypto.randomUUID());
 
   // ESTADOS DO FRETE E BLOQUEIO
   const [deliveryFee, setDeliveryFee] = useState(initialData.fee);
@@ -229,34 +230,59 @@ export default function CheckoutPage() {
         ? "Retirada no Balcão" 
         : `${deliveryStreet}, ${deliveryNumber}${deliveryComplement ? ` - ${deliveryComplement}` : ''} • ${deliveryNeighborhood} • ${deliveryCity}/${deliveryState} (CEP: ${deliveryCep})`;
 
-      const response = await fetch(`${API_BASE_URL}/orders/${company_slug}/`, {
+      const isMercadoPago = paymentMethod === 'mercadopago';
+      const mercadoPagoItems = cart.map(item => ({
+        product_id: item.id,
+        quantity: item.quantity,
+        obs: (item as any).obs || ""
+      }));
+      const commonPayload = {
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        is_pickup: isPickup,
+        delivery_address: fullDeliveryAddress,
+        delivery_cep: deliveryCep,
+        delivery_street: deliveryStreet,
+        delivery_number: deliveryNumber,
+        delivery_complement: deliveryComplement,
+        delivery_neighborhood: deliveryNeighborhood,
+        delivery_city: deliveryCity,
+        delivery_state: deliveryState,
+        delivery_instructions: deliveryInstructions,
+      };
+      const requestPayload = isMercadoPago ? {
+        ...commonPayload,
+        items: mercadoPagoItems,
+        payment_method: 'mercadopago',
+      } : {
+        ...commonPayload,
+        items: formattedItems,
+        subtotal, delivery_fee: isPickup ? 0 : deliveryFee, service_fee: serviceFee, total_amount: totalAmount,
+        payment_method: finalPaymentMethod,
+        change_for: paymentMethod === 'money' && changeForStr ? getChangeForAsNumber() : null,
+        is_paid: false,
+        status: "new",
+        coupon_applied: appliedCoupon
+      };
+
+      const response = await fetch(
+        `${API_BASE_URL}/orders/${company_slug}/${isMercadoPago ? 'checkout/' : ''}`,
+        {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          is_pickup: isPickup,
-          delivery_address: fullDeliveryAddress,
-          delivery_cep: deliveryCep,
-          delivery_street: deliveryStreet,
-          delivery_number: deliveryNumber,
-          delivery_complement: deliveryComplement,
-          delivery_neighborhood: deliveryNeighborhood,
-          delivery_city: deliveryCity,
-          delivery_state: deliveryState,
-          delivery_instructions: deliveryInstructions,
-          items: formattedItems,
-          subtotal, delivery_fee: isPickup ? 0 : deliveryFee, service_fee: serviceFee, total_amount: totalAmount,
-          payment_method: finalPaymentMethod,
-          change_for: paymentMethod === 'money' && changeForStr ? getChangeForAsNumber() : null,
-          is_paid: paymentMethod === 'pix' || paymentMethod === 'mercadopago',
-          status: "new",
-          coupon_applied: appliedCoupon
-        })
+        headers: {
+          'Content-Type': 'application/json',
+          ...(isMercadoPago ? { 'Idempotency-Key': checkoutIdempotencyKey.current } : {}),
+        },
+        body: JSON.stringify(requestPayload)
       });
 
       if (response.ok) {
         const result = await response.json();
+        if (isMercadoPago) {
+          if (!result.init_point) throw new Error('Resposta de pagamento inválida.');
+          window.location.assign(result.init_point);
+          return;
+        }
         setOrderCreatedId(result.order_id);
         clearCart(); 
       } else {
@@ -349,6 +375,7 @@ export default function CheckoutPage() {
             changeForStr={changeForStr} 
             handleChangeForInput={handleChangeForInput} 
             totalAmount={totalAmount} 
+            mercadoPagoEnabled={catalog?.mercadopago_enabled === true}
           />
 
           <div className="lg:hidden">

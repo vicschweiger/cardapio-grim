@@ -24,6 +24,7 @@ export interface CatalogData {
   logo_url?: string;
   categories: Category[];
   min_order?: number;
+  mercadopago_enabled?: boolean;
 }
 
 export interface CartItem extends Product {
