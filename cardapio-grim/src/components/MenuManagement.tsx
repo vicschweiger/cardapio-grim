@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ProductGrid } from '../components/ProductGrid.tsx';
 import { ProductModal } from '../components/ProductModal.tsx';
-import type { Product, Category, CatalogData } from '../types/index.tsx';
+import type { Product, CatalogData } from '../types/index.tsx';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://web-production-6e1d8.up.railway.app/api';
 

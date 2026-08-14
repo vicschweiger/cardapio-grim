@@ -1,5 +1,6 @@
 // src/components/ui/Input.tsx
-import { InputHTMLAttributes, forwardRef } from 'react';
+import { forwardRef } from 'react';
+import type { InputHTMLAttributes } from 'react';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;

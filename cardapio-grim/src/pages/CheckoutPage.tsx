@@ -1,5 +1,5 @@
 import { useState, useContext, useMemo, useEffect, useRef } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Store, Loader2, AlertCircle } from 'lucide-react';
 
 import { CatalogContext } from '../context/CatalogContext.tsx';
@@ -10,8 +10,27 @@ import { CheckoutCustomerForm } from '../components/checkout/CheckoutCustomerFor
 import { CheckoutDeliveryForm } from '../components/checkout/CheckoutDeliveryForm.tsx';
 import { CheckoutPaymentForm } from '../components/checkout/CheckoutPaymentForm.tsx';
 import { CheckoutSummary } from '../components/checkout/CheckoutSummary.tsx';
+import { CheckoutPixState } from '../components/checkout/CheckoutPixState.tsx';
+import { MercadoPagoReturnState } from '../components/checkout/MercadoPagoReturnState.tsx';
+import { CheckoutApiError, createDeliveryOrder, createMercadoPagoCheckout, getPaymentConfig } from '../api/checkout.ts';
+import type {
+  CreatedOrderResponse,
+  DeliveryOrderPayload,
+  MercadoPagoCheckoutPayload,
+  MercadoPagoCheckoutResponse,
+  MercadoPagoReturnResult,
+  PaymentConfig,
+  PaymentMethod,
+} from '../types/checkout.ts';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://web-production-6e1d8.up.railway.app/api';
+
+const DELIVERY_ONLY_PAYMENT_CONFIG: PaymentConfig = {
+  pix: { enabled: false, key: '', key_type: '', receiver_name: '' },
+  mercadopago: { enabled: false, connected: false, pix_enabled: false, card_enabled: false },
+  money: { enabled: true },
+  card_on_delivery: { enabled: true },
+};
 
 // Utilitário para Capitalizar Nomes corretamente
 const capitalizeName = (name: string) => {
@@ -29,11 +48,12 @@ const capitalizeName = (name: string) => {
 export default function CheckoutPage() {
   const { company_slug } = useParams<{ company_slug: string }>();
   const location = useLocation();
+  const navigate = useNavigate();
   
   const context = useContext(CatalogContext);
   if (!context) throw new Error("CheckoutPage deve ser renderizada dentro de um CatalogProvider");
 
-  const { catalog, cart, clearCart, fetchCatalog, removeFromCart } = context;
+  const { catalog, cart, clearCart, fetchCatalog, removeFromCart, handleAddToCart, handleSubtractFromCart } = context;
 
   // 🛡️ INICIALIZAÇÃO BLINDADA (Ignora cache velho ou corrompido)
   const [initialData] = useState(() => {
@@ -75,7 +95,7 @@ export default function CheckoutPage() {
       address.street = parts[0]?.trim() || address.full;
       
       if (parts[1]) {
-        address.number = parts[1].trim().split(/[ \-]/)[0] || '';
+        address.number = parts[1].trim().split(/[ -]/)[0] || '';
       }
       
       const cepMatch = address.full.match(/\d{5}-?\d{3}/);
@@ -107,16 +127,65 @@ export default function CheckoutPage() {
   const [deliveryState, setDeliveryState] = useState(initialData.address.state || '');
   
   const [deliveryInstructions, setDeliveryInstructions] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'money' | 'card' | 'pix' | 'mercadopago'>('money');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [cardType, setCardType] = useState<'credit' | 'debit'>('credit');
   const [changeForStr, setChangeForStr] = useState('');
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfig | null>(null);
+  const [isPaymentConfigLoading, setPaymentConfigLoading] = useState(true);
+  const [paymentConfigError, setPaymentConfigError] = useState<string | null>(null);
+  const [paymentConfigRequest, setPaymentConfigRequest] = useState(0);
   
-  const [couponCodeInput, setCouponCodeInput] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(initialData.coupon);
+  const [appliedCoupon] = useState<string | null>(initialData.coupon);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderCreatedId, setOrderCreatedId] = useState<number | null>(null);
+  const [pixOrder, setPixOrder] = useState<CreatedOrderResponse | null>(null);
+  const [mercadoPagoCheckout, setMercadoPagoCheckout] = useState<MercadoPagoCheckoutResponse | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const checkoutIdempotencyKey = useRef(crypto.randomUUID());
+
+  const mercadoPagoReturn = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    const result = params.get('payment_result');
+    const orderId = Number(params.get('grim_order_id'));
+    if (!['success', 'pending', 'failure'].includes(result || '') || !Number.isSafeInteger(orderId) || orderId <= 0) return null;
+    return { result: result as MercadoPagoReturnResult, orderId };
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!company_slug || mercadoPagoReturn) return;
+    const controller = new AbortController();
+    setPaymentConfigLoading(true);
+    setPaymentConfigError(null);
+
+    getPaymentConfig(company_slug, controller.signal)
+      .then(config => {
+        setPaymentConfig(config);
+        const enabledMethods: PaymentMethod[] = [];
+        if (config.money?.enabled !== false) enabledMethods.push('money');
+        if (config.card_on_delivery?.enabled !== false) enabledMethods.push('card');
+        if (config.pix.enabled) enabledMethods.push('pix_manual');
+        if (config.mercadopago.enabled && config.mercadopago.connected && (config.mercadopago.pix_enabled || config.mercadopago.card_enabled)) enabledMethods.push('mercadopago');
+        setPaymentMethod(current => current && enabledMethods.includes(current) ? current : enabledMethods[0] || null);
+      })
+      .catch(error => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        if (error instanceof CheckoutApiError && error.status === 404) {
+          setPaymentConfig(DELIVERY_ONLY_PAYMENT_CONFIG);
+          setPaymentMethod('money');
+          setPaymentConfigError(null);
+          return;
+        }
+        setPaymentConfig(null);
+        setPaymentMethod(null);
+        setPaymentConfigError(error instanceof Error ? error.message : 'Não foi possível carregar as formas de pagamento.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setPaymentConfigLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [company_slug, mercadoPagoReturn, paymentConfigRequest]);
 
   // ESTADOS DO FRETE E BLOQUEIO
   const [deliveryFee, setDeliveryFee] = useState(initialData.fee);
@@ -163,6 +232,9 @@ export default function CheckoutPage() {
   const serviceFee = 0; 
   const discountValue = useMemo(() => appliedCoupon ? subtotal * 0.10 : initialData.discount, [appliedCoupon, subtotal, initialData.discount]);
   const totalAmount = useMemo(() => Math.max(0, subtotal + (isPickup ? 0 : deliveryFee) + serviceFee - discountValue), [subtotal, deliveryFee, isPickup, serviceFee, discountValue]);
+  const minimumOrder = Math.max(0, Number(catalog?.min_order) || 0);
+  const orderValueWithoutDelivery = Math.max(0, subtotal + serviceFee - discountValue);
+  const isBelowMinimumOrder = minimumOrder > 0 && orderValueWithoutDelivery < minimumOrder;
 
   // VALIDAÇÃO DO TROCO 
   const changeForNumber = changeForStr ? parseFloat(changeForStr.replace(/\./g, '').replace(',', '.')) : 0;
@@ -181,38 +253,49 @@ export default function CheckoutPage() {
     setChangeForStr(new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(parseFloat(numberValue)));
   };
 
-  const handleApplyCheckoutCoupon = () => {
-    if (couponCodeInput.trim().length > 0) {
-      setAppliedCoupon(couponCodeInput.trim().toUpperCase());
-      setCouponCodeInput('');
-    }
-  };
-
-  const handleRemoveCheckoutCoupon = () => {
-    setAppliedCoupon(null);
-  };
-
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0 || !catalog) return;
+    if (!paymentMethod || !paymentConfig) return setSubmitError('Selecione uma forma de pagamento disponível.');
 
     if (!catalog.is_open) return alert("O estabelecimento encontra-se fechado. Não é possível enviar pedidos.");
     if (customerPhone.replace(/\D/g, '').length < 10) return alert("Por favor, insira um número de celular válido.");
     if (!isPickup && isDeliveryBlocked) return alert("Por favor, verifique o seu endereço. A entrega não está disponível para esta localização.");
     if (inactiveCartItems.length > 0) return alert("Por favor, remova os itens indisponíveis do carrinho antes de finalizar o pedido.");
     if (isChangeInvalid) return alert("Por favor, digite um valor de troco válido.");
+    if (isBelowMinimumOrder) {
+      return setSubmitError(`O pedido mínimo é ${formatCurrency(minimumOrder)} sem considerar a taxa de entrega.`);
+    }
+    if (mercadoPagoCheckout) return;
+
+    const mercadoPagoWindow = paymentMethod === 'mercadopago'
+      ? window.open('about:blank', 'grimdev_mercadopago', 'popup=yes,width=520,height=760')
+      : null;
+    if (mercadoPagoWindow) {
+      mercadoPagoWindow.document.title = 'Mercado Pago';
+      mercadoPagoWindow.document.body.textContent = 'Preparando seu pagamento seguro...';
+    }
 
     try {
       setIsSubmitting(true);
+      setSubmitError(null);
 
       try {
         const checkStatusRes = await fetch(`${API_BASE_URL}/catalog/${company_slug}/`);
         if (checkStatusRes.ok) {
           const checkStatusData = await checkStatusRes.json();
           if (!checkStatusData.is_open) {
+             mercadoPagoWindow?.close();
              alert("⚠️ O estabelecimento acabou de fechar! Não é possível enviar o pedido neste momento.");
              if (fetchCatalog) fetchCatalog(company_slug!, true);
              return setIsSubmitting(false);
+          }
+          const currentMinimumOrder = Math.max(0, Number(checkStatusData.min_order) || 0);
+          if (currentMinimumOrder > 0 && orderValueWithoutDelivery < currentMinimumOrder) {
+            mercadoPagoWindow?.close();
+            if (fetchCatalog) void fetchCatalog(company_slug!, true);
+            setSubmitError(`O pedido mínimo foi atualizado para ${formatCurrency(currentMinimumOrder)} sem considerar a taxa de entrega.`);
+            return setIsSubmitting(false);
           }
         }
       } catch (err) { console.warn("Pre-flight check falhou, prosseguindo...", err); }
@@ -224,7 +307,9 @@ export default function CheckoutPage() {
         obs: (item as any).obs || ""
       }));
 
-      let finalPaymentMethod = paymentMethod === 'card' ? (cardType === 'credit' ? 'card_credit' : 'card_debit') : paymentMethod;
+      const finalPaymentMethod: DeliveryOrderPayload['payment_method'] = paymentMethod === 'card'
+        ? (cardType === 'credit' ? 'card_credit' : 'card_debit')
+        : paymentMethod === 'mercadopago' ? 'money' : paymentMethod;
 
       const fullDeliveryAddress = isPickup 
         ? "Retirada no Balcão" 
@@ -250,48 +335,52 @@ export default function CheckoutPage() {
         delivery_state: deliveryState,
         delivery_instructions: deliveryInstructions,
       };
-      const requestPayload = isMercadoPago ? {
+      const mercadoPagoPayload: MercadoPagoCheckoutPayload = {
         ...commonPayload,
         items: mercadoPagoItems,
         payment_method: 'mercadopago',
-      } : {
+      };
+      const deliveryOrderPayload: DeliveryOrderPayload = {
         ...commonPayload,
         items: formattedItems,
         subtotal, delivery_fee: isPickup ? 0 : deliveryFee, service_fee: serviceFee, total_amount: totalAmount,
         payment_method: finalPaymentMethod,
         change_for: paymentMethod === 'money' && changeForStr ? getChangeForAsNumber() : null,
         is_paid: false,
-        status: "new",
+        status: 'new',
         coupon_applied: appliedCoupon
       };
 
-      const response = await fetch(
-        `${API_BASE_URL}/orders/${company_slug}/${isMercadoPago ? 'checkout/' : ''}`,
-        {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(isMercadoPago ? { 'Idempotency-Key': checkoutIdempotencyKey.current } : {}),
-        },
-        body: JSON.stringify(requestPayload)
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (isMercadoPago) {
-          if (!result.init_point) throw new Error('Resposta de pagamento inválida.');
-          window.location.assign(result.init_point);
-          return;
+      if (isMercadoPago) {
+        const result = await createMercadoPagoCheckout(company_slug!, mercadoPagoPayload, checkoutIdempotencyKey.current);
+        if (!result.init_point || !result.preference_id) throw new Error('Resposta de pagamento inválida.');
+        const mercadoPagoUrl = new URL(result.init_point);
+        if (!(mercadoPagoUrl.hostname === 'mercadopago.com.br' || mercadoPagoUrl.hostname.endsWith('.mercadopago.com.br'))) {
+          throw new Error('O backend retornou um endereço de pagamento inválido.');
         }
-        setOrderCreatedId(result.order_id);
-        clearCart(); 
-      } else {
-        const errData = await response.json();
-        alert(`Erro: ${errData.error || response.statusText}`);
-        if (response.status === 403 && fetchCatalog) fetchCatalog(company_slug!, true);
+        setMercadoPagoCheckout(result);
+        if (mercadoPagoWindow && !mercadoPagoWindow.closed) {
+          mercadoPagoWindow.opener = null;
+          mercadoPagoWindow.location.replace(mercadoPagoUrl.href);
+        }
+        requestAnimationFrame(() => document.getElementById('checkout-payment-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+        return;
       }
+
+      const result = await createDeliveryOrder(company_slug!, deliveryOrderPayload);
+      if (!Number.isSafeInteger(Number(result.order_id))) throw new Error('O backend não retornou um pedido válido.');
+      if (paymentMethod === 'pix_manual') {
+        if (!result.pix_code || !result.pix_qr_code || result.total_amount === undefined) {
+          throw new Error('O backend não retornou os dados necessários para o pagamento PIX.');
+        }
+        setPixOrder(result);
+      } else {
+        setOrderCreatedId(result.order_id);
+      }
+      clearCart();
     } catch (error) {
-      alert("Erro de conexão ao enviar o pedido para a cozinha.");
+      mercadoPagoWindow?.close();
+      setSubmitError(error instanceof Error ? error.message : 'Erro de conexão ao enviar o pedido.');
     } finally {
       setIsSubmitting(false);
     }
@@ -299,6 +388,16 @@ export default function CheckoutPage() {
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
+  if (mercadoPagoReturn) return (
+    <MercadoPagoReturnState
+      companySlug={company_slug!}
+      orderId={mercadoPagoReturn.orderId}
+      returnResult={mercadoPagoReturn.result}
+      onOrderFound={clearCart}
+      onBackToMenu={() => navigate(`/${company_slug}`)}
+    />
+  );
+  if (pixOrder) return <CheckoutPixState order={pixOrder} companySlug={company_slug!} onBackToMenu={() => navigate(`/${company_slug}`)} />;
   if (orderCreatedId) return <CheckoutSuccessState orderId={orderCreatedId} companySlug={company_slug!} />;
   if (cart.length === 0) return <CheckoutEmptyState companySlug={company_slug!} />;
 
@@ -375,13 +474,20 @@ export default function CheckoutPage() {
             changeForStr={changeForStr} 
             handleChangeForInput={handleChangeForInput} 
             totalAmount={totalAmount} 
-            mercadoPagoEnabled={catalog?.mercadopago_enabled === true}
+            paymentConfig={paymentConfig}
+            isLoading={isPaymentConfigLoading}
+            error={paymentConfigError}
+            onRetry={() => setPaymentConfigRequest(value => value + 1)}
+            mercadoPagoCheckout={mercadoPagoCheckout}
+            isSubmitting={isSubmitting}
           />
+
+          {submitError && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-center text-sm text-red-700" role="alert">{submitError}</p>}
 
           <div className="lg:hidden">
             <button 
               type="submit" 
-              disabled={isSubmitting || catalog?.is_open === false || (!isPickup && isDeliveryBlocked) || inactiveCartItems.length > 0 || isChangeInvalid} 
+              disabled={isSubmitting || catalog?.is_open === false || (!isPickup && isDeliveryBlocked) || inactiveCartItems.length > 0 || isChangeInvalid || !paymentMethod || !paymentConfig || isBelowMinimumOrder || Boolean(mercadoPagoCheckout)}
               className="w-full bg-teal-600 text-white rounded-xl py-3.5 font-bold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg flex items-center justify-center gap-2"
             >
               {isSubmitting ? (
@@ -392,6 +498,12 @@ export default function CheckoutPage() {
                 "Endereço Fora de Área"
               ) : isChangeInvalid ? (
                 "Valor do Troco Inválido" 
+              ) : isBelowMinimumOrder ? (
+                "Pedido abaixo do mínimo"
+              ) : mercadoPagoCheckout ? (
+                "Finalize no Mercado Pago"
+              ) : paymentMethod === 'mercadopago' ? (
+                "Confirmar e abrir Mercado Pago"
               ) : (
                 "Confirmar e Enviar Pedido"
               )}
@@ -401,14 +513,19 @@ export default function CheckoutPage() {
 
         <div className="lg:col-span-5 lg:sticky lg:top-24 h-fit space-y-6">
           <CheckoutSummary 
-            cart={cart} subtotal={subtotal} deliveryFee={isPickup ? 0 : deliveryFee} discountValue={discountValue} totalAmount={totalAmount}
-            appliedCoupon={appliedCoupon} couponCodeInput={couponCodeInput} setCouponCodeInput={setCouponCodeInput}
-            handleApplyCheckoutCoupon={handleApplyCheckoutCoupon} handleRemoveCheckoutCoupon={handleRemoveCheckoutCoupon}
+            cart={cart} deliveryFee={isPickup ? 0 : deliveryFee} discountValue={discountValue}
+            appliedCoupon={appliedCoupon}
             isSubmitting={isSubmitting} isStoreOpen={catalog?.is_open !== false} formatCurrency={formatCurrency}
-            isPickup={isPickup} isDeliveryBlocked={isDeliveryBlocked}
+            isDeliveryBlocked={isDeliveryBlocked}
             inactiveCartItems={inactiveCartItems}
             removeFromCart={removeFromCart}
+            onAddToCart={handleAddToCart}
+            onSubtractFromCart={handleSubtractFromCart}
             isChangeInvalid={isChangeInvalid}
+            isPaymentReady={Boolean(paymentMethod && paymentConfig)}
+            minimumOrder={minimumOrder}
+            paymentMethod={paymentMethod}
+            mercadoPagoCheckoutReady={Boolean(mercadoPagoCheckout)}
           />
         </div>
       </div>

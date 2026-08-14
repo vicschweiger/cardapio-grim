@@ -2,7 +2,7 @@
 import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
 import MenuPage from './pages/MenuPage.tsx';
 import NotFound from './pages/NotFound.tsx';
-import CheckoutPage from './pages/CheckoutPage.tsx';
+import CheckoutForm from './components/CheckoutForm.tsx';
 import { CatalogProvider } from './context/CatalogContext.tsx'; // Importado do arquivo correto!
 import { DynamicTitle } from './components/DynamicTitle.tsx';
 import { DynamicFavicon } from './components/DynamicFavicon.tsx';
@@ -30,7 +30,7 @@ function App() {
           <Route index element={<MenuPage />} />
           
           {/* Rota filha 2: A página de finalizar o pedido (/checkout) */}
-          <Route path="checkout" element={<CheckoutPage />} />
+          <Route path="checkout" element={<CheckoutForm />} />
         </Route>
 
         {/* Rotas genéricas que NÃO precisam do carrinho */}

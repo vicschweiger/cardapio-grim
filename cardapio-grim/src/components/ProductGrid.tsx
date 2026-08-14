@@ -1,5 +1,5 @@
 import { Edit, Trash2, Tag } from 'lucide-react';
-import type { Product } from '../../types';
+import type { Product } from '../types';
 
 interface ProductGridProps {
   products: Product[];

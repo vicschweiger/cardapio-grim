@@ -12,7 +12,7 @@ interface DeliveryLookupModalProps {
 
 export function DeliveryLookupModal({
   isOpen,
-  onClose,
+  onClose: _onClose,
   pastOrders,
   companySlug,
   onDeliveryCalculated,

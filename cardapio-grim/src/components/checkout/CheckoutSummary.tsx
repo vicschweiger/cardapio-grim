@@ -1,44 +1,46 @@
 import { useState, useEffect } from 'react';
-import { ShoppingBag, Tag, Loader2, Trash2, Undo2, AlertTriangle } from 'lucide-react';
+import { ShoppingBag, Loader2, Undo2, AlertTriangle } from 'lucide-react';
+import type { CartItem } from '../../types/index.tsx';
+import { QuantityStepper } from '../QuantityStepper.tsx';
 
 interface CheckoutSummaryProps {
-  cart: any[];
-  subtotal: number;
+  cart: CartItem[];
   deliveryFee: number;
   discountValue: number;
-  totalAmount: number;
   appliedCoupon: string | null;
-  couponCodeInput: string;
-  setCouponCodeInput: (val: string) => void;
-  handleApplyCheckoutCoupon: () => void;
-  handleRemoveCheckoutCoupon: () => void;
   isSubmitting: boolean;
   isStoreOpen: boolean;
   formatCurrency: (val: number) => string;
   isDeliveryBlocked: boolean;
   inactiveCartItems?: string[];
   removeFromCart: (itemName: string) => void;
+  onAddToCart: (item: CartItem) => void;
+  onSubtractFromCart: (productId: string | number) => void;
   isChangeInvalid?: boolean; // <--- NOVA PROP ADICIONADA AQUI
+  isPaymentReady?: boolean;
+  minimumOrder: number;
+  paymentMethod?: string | null;
+  mercadoPagoCheckoutReady?: boolean;
 }
 
 export function CheckoutSummary({ 
   cart, 
-  subtotal, 
   deliveryFee, 
   discountValue, 
-  totalAmount, 
   appliedCoupon, 
-  couponCodeInput, 
-  setCouponCodeInput, 
-  handleApplyCheckoutCoupon, 
-  handleRemoveCheckoutCoupon, 
   isSubmitting, 
   isStoreOpen, 
   formatCurrency,
   isDeliveryBlocked,
   inactiveCartItems = [],
   removeFromCart,
-  isChangeInvalid = false // <--- ADICIONADO AQUI
+  onAddToCart,
+  onSubtractFromCart,
+  isChangeInvalid = false, // <--- ADICIONADO AQUI
+  isPaymentReady = true,
+  minimumOrder,
+  paymentMethod,
+  mercadoPagoCheckoutReady = false,
 }: CheckoutSummaryProps) {
 
   const [pendingRemoval, setPendingRemoval] = useState<string[]>([]);
@@ -74,6 +76,8 @@ export function CheckoutSummary({
   // Ajusta o desconto para nunca ser maior que o subtotal ativo
   const activeDiscount = appliedCoupon ? activeSubtotal * 0.10 : Math.min(activeSubtotal, discountValue);
   const activeTotal = Math.max(0, activeSubtotal + deliveryFee - activeDiscount);
+  const activeOrderValueWithoutDelivery = Math.max(0, activeSubtotal - activeDiscount);
+  const isBelowMinimum = minimumOrder > 0 && activeOrderValueWithoutDelivery < minimumOrder;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex flex-col gap-4">
@@ -81,7 +85,7 @@ export function CheckoutSummary({
         <ShoppingBag className="w-4 h-4 text-teal-600" /> Resumo do Carrinho
       </h3>
       
-      <div className="divide-y divide-gray-100 max-h-56 overflow-y-auto custom-scrollbar pr-1">
+      <div className="divide-y divide-gray-100 max-h-72 overflow-y-auto custom-scrollbar pr-1">
         {cart.map((item, idx) => {
           const itemPrice = typeof item.price === 'string' ? parseFloat(item.price) : Number(item.price);
           const validPrice = isNaN(itemPrice) ? 0 : itemPrice;
@@ -105,25 +109,26 @@ export function CheckoutSummary({
           }
 
           return (
-            <div key={idx} className={`py-2.5 flex justify-between text-sm items-center gap-3 group relative transition-colors ${isItemInactive ? 'bg-amber-50/50 px-2 rounded-lg -mx-2' : ''}`}>
-              <span className={`font-medium truncate flex-1 ${isItemInactive ? 'text-amber-800 line-through opacity-70' : 'text-gray-700'}`}>
-                <strong className={`${isItemInactive ? 'text-amber-700' : 'text-teal-600'} mr-1`}>{item.quantity}x</strong> {item.name}
-              </span>
-              
-              <div className="flex items-center gap-3">
+            <div key={idx} className={`py-3 space-y-2.5 text-sm transition-colors ${isItemInactive ? 'bg-amber-50/50 px-2 rounded-lg -mx-2' : ''}`}>
+              <div className="flex items-start justify-between gap-3">
+                <span className={`font-medium min-w-0 flex-1 ${isItemInactive ? 'text-amber-800 line-through opacity-70' : 'text-gray-700'}`}>
+                  {item.name}
+                </span>
                 <span className={`font-semibold whitespace-nowrap ${isItemInactive ? 'text-amber-800 opacity-50 line-through' : 'text-gray-900'}`}>
                   {formatCurrency(validPrice * item.quantity)}
                 </span>
-                
-                <button 
-                  type="button"
-                  onClick={() => handleIntentionToRemove(item.name)}
-                  className="text-gray-300 hover:text-red-500 transition-colors p-1 rounded-md hover:bg-red-50 lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100"
-                  aria-label="Remover item"
-                  title="Remover item"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <QuantityStepper
+                  quantity={item.quantity}
+                  itemName={item.name}
+                  onIncrement={() => onAddToCart(item)}
+                  onDecrement={() => item.quantity === 1 ? handleIntentionToRemove(item.name) : onSubtractFromCart(item.id)}
+                  disabled={isSubmitting || mercadoPagoCheckoutReady}
+                  incrementDisabled={isItemInactive}
+                  compact
+                />
+                <span className="text-xs text-gray-400">{formatCurrency(validPrice)} cada</span>
               </div>
             </div>
           );
@@ -131,6 +136,12 @@ export function CheckoutSummary({
       </div>
 
       <div className="border-t border-dashed border-gray-200 pt-4 space-y-2 text-sm text-gray-600">
+        {minimumOrder > 0 && (
+          <div className={`flex justify-between rounded-lg px-3 py-2 font-semibold ${isBelowMinimum ? 'bg-amber-50 text-amber-800' : 'bg-green-50 text-green-700'}`}>
+            <span>Pedido mínimo:</span>
+            <span>{formatCurrency(minimumOrder)}</span>
+          </div>
+        )}
         <div className="flex justify-between">
           <span>Subtotal:</span>
           <span className="font-medium text-gray-900">{formatCurrency(activeSubtotal)}</span>
@@ -152,6 +163,12 @@ export function CheckoutSummary({
           <span className="text-teal-600 text-lg">{formatCurrency(activeTotal)}</span>
         </div>
       </div>
+
+      {isBelowMinimum && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-900" role="alert">
+          Faltam {formatCurrency(Math.max(0, minimumOrder - activeOrderValueWithoutDelivery))} em produtos para atingir o pedido mínimo. A entrega não entra nesse cálculo.
+        </p>
+      )}
       
       <div className="hidden lg:block">
         {inactiveCartItems.length > 0 ? (
@@ -167,7 +184,7 @@ export function CheckoutSummary({
           <button 
             type="submit" 
             form="checkout-form" 
-            disabled={isSubmitting || !isStoreOpen || isDeliveryBlocked || isChangeInvalid} 
+            disabled={isSubmitting || !isStoreOpen || isDeliveryBlocked || isChangeInvalid || !isPaymentReady || isBelowMinimum || mercadoPagoCheckoutReady}
             className="w-full bg-teal-600 text-white rounded-xl py-3.5 font-bold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md flex items-center justify-center gap-2 cursor-pointer"
           >
             {isSubmitting ? (
@@ -176,6 +193,12 @@ export function CheckoutSummary({
               "Endereço Fora da Área de Entrega"
             ) : isChangeInvalid ? (
               "Valor do Troco Inválido" // <--- MENSAGEM DINÂMICA
+            ) : isBelowMinimum ? (
+              "Pedido abaixo do mínimo"
+            ) : mercadoPagoCheckoutReady ? (
+              "Finalize no Mercado Pago"
+            ) : paymentMethod === 'mercadopago' ? (
+              "Confirmar e abrir Mercado Pago"
             ) : (
               "Confirmar e Enviar Pedido"
             )}

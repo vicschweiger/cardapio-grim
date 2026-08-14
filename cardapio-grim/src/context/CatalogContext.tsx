@@ -1,4 +1,5 @@
-import { createContext, useState, useCallback, ReactNode, useEffect, useMemo } from 'react';
+import { createContext, useState, useCallback, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import type { CatalogData, Product, CartItem } from '../types/index.tsx';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://web-production-6e1d8.up.railway.app/api';
@@ -11,6 +12,7 @@ export interface CatalogContextProps {
   fetchCatalog: (slug: string, silent?: boolean) => Promise<void>;
   handleAddToCart: (product: Product) => void;
   handleSubtractFromCart: (productId: string | number) => void;
+  removeFromCart: (itemName: string) => void;
   clearCart: () => void;
 }
 
@@ -91,6 +93,10 @@ export const CatalogProvider = ({ children }: { children: ReactNode }) => {
     setCart([]);
   }, []);
 
+  const removeFromCart = useCallback((itemName: string) => {
+    setCart(previousCart => previousCart.filter(item => item.name !== itemName));
+  }, []);
+
   return (
     <CatalogContext.Provider
       value={{
@@ -101,6 +107,7 @@ export const CatalogProvider = ({ children }: { children: ReactNode }) => {
         fetchCatalog,
         handleAddToCart,
         handleSubtractFromCart,
+        removeFromCart,
         clearCart,
       }}
     >

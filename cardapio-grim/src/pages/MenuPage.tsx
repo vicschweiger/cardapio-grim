@@ -10,6 +10,7 @@ import Spinner from '../components/Spinner.tsx';
 import NotFound from '../pages/NotFound.tsx';
 import { DeliveryLookupModal } from '../components/DeliveryLookupModal.tsx';
 import { DeliveryStatusBar } from '../components/DeliveryStatusBar.tsx';
+import type { Category, Product } from '../types';
 
 // Contexto
 import { CatalogContext } from '../context/CatalogContext.tsx';
@@ -249,6 +250,8 @@ const formattedCategories = useMemo(() => {
         customerAddressInfo={customerAddressInfo}
         customerName={customerName}
         customerPhone={customerPhone}
+        onAddToCart={handleAddToCart}
+        onSubtractFromCart={handleSubtractFromCart}
       />
     </div>
   );

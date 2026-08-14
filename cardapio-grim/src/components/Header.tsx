@@ -1,5 +1,3 @@
-import React from 'react';
-
 interface HeaderProps {
   name: string;
   coverImage?: string; 

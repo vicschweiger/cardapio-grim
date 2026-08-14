@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { CartItem, Theme } from '../types/index.tsx';
+import { QuantityStepper } from './QuantityStepper.tsx';
 
 interface CartDrawerProps {
   cart: CartItem[];
@@ -11,9 +12,11 @@ interface CartDrawerProps {
   customerAddressInfo?: any;
   customerName?: string;
   customerPhone?: string;
+  onAddToCart: (item: CartItem) => void;
+  onSubtractFromCart: (productId: string | number) => void;
 }
 
-const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerAddressInfo, customerName, customerPhone }: CartDrawerProps) => {
+const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerAddressInfo, customerName, customerPhone, onAddToCart, onSubtractFromCart }: CartDrawerProps) => {
   const [isOpen, setIsOpen] = useState(false);
   
   // Estados para o Cupom
@@ -131,12 +134,9 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
                   const itemTotal = validPrice * item.quantity;
 
                   return (
-                    <div key={item.id} className="flex flex-col gap-2 rounded-2xl bg-white p-4 shadow-sm border border-gray-100/80">
+                    <div key={item.id} className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm border border-gray-100/80">
                       <div className="flex justify-between items-start gap-4">
                         <div className="flex gap-3">
-                          <span className="font-bold" style={{ color: primaryColor }}>
-                            {item.quantity}x
-                          </span>
                           <span className="font-medium text-gray-800 line-clamp-2">
                             {item.name}
                           </span>
@@ -146,11 +146,16 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
                         </span>
                       </div>
                       
-                      {item.quantity > 1 && (
-                        <div className="text-xs text-gray-400 text-right">
-                          {formatCurrency(validPrice)} cada
-                        </div>
-                      )}
+                      <div className="flex items-center justify-between gap-3">
+                        <QuantityStepper
+                          quantity={item.quantity}
+                          itemName={item.name}
+                          onIncrement={() => onAddToCart(item)}
+                          onDecrement={() => onSubtractFromCart(item.id)}
+                          accentColor={primaryColor}
+                        />
+                        <span className="text-right text-xs text-gray-500">{formatCurrency(validPrice)} cada</span>
+                      </div>
                     </div>
                   );
                 })}

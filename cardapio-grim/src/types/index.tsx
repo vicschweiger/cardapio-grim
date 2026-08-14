@@ -4,6 +4,10 @@ export interface Product {
   description: string;
   price: string;
   image_url: string;
+  category_id?: number;
+  is_active?: boolean;
+  is_promotional?: boolean;
+  original_price?: string | null;
 }
 
 export interface Category {
@@ -14,7 +18,11 @@ export interface Category {
 
 export interface Theme {
   background: string;
+  primary: string;
+  text: string;
 }
+
+export type ThemeColors = Theme;
 
 export interface CatalogData {
   name: string;
