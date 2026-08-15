@@ -6,6 +6,7 @@ import type {
   OrderStatusResponse,
   PaymentConfig,
   PixPaymentDeclaredResponse,
+  ValidateCouponResponse,
 } from '../types/checkout';
 
 const API_BASE_URL = (import.meta.env.VITE_API_URL || 'https://web-production-6e1d8.up.railway.app/api').replace(/\/$/, '');
@@ -51,6 +52,26 @@ export function createDeliveryOrder(companyToken: string, payload: DeliveryOrder
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+    },
+  );
+}
+
+export function validateCoupon(
+  companyToken: string,
+  couponCode: string,
+  subtotal: number,
+  deliveryFee: number,
+) {
+  return requestJson<ValidateCouponResponse>(
+    `${API_BASE_URL}/coupons/${encodeURIComponent(companyToken)}/validate/`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        coupon_code: couponCode,
+        subtotal,
+        delivery_fee: deliveryFee,
+      }),
     },
   );
 }

@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { ShoppingBag, Loader2, Undo2, AlertTriangle } from 'lucide-react';
 import type { CartItem } from '../../types/index.tsx';
+import type { AppliedCoupon } from '../../types/checkout.ts';
 import { QuantityStepper } from '../QuantityStepper.tsx';
 
 interface CheckoutSummaryProps {
   cart: CartItem[];
   deliveryFee: number;
   discountValue: number;
-  appliedCoupon: string | null;
+  appliedCoupon: AppliedCoupon | null;
   isSubmitting: boolean;
   isStoreOpen: boolean;
   formatCurrency: (val: number) => string;
@@ -73,8 +74,7 @@ export function CheckoutSummary({
     return sum + validPrice * item.quantity;
   }, 0);
 
-  // Ajusta o desconto para nunca ser maior que o subtotal ativo
-  const activeDiscount = appliedCoupon ? activeSubtotal * 0.10 : Math.min(activeSubtotal, discountValue);
+  const activeDiscount = Math.max(0, discountValue);
   const activeTotal = Math.max(0, activeSubtotal + deliveryFee - activeDiscount);
   const activeOrderValueWithoutDelivery = Math.max(0, activeSubtotal - activeDiscount);
   const isBelowMinimum = minimumOrder > 0 && activeOrderValueWithoutDelivery < minimumOrder;
@@ -148,14 +148,21 @@ export function CheckoutSummary({
         </div>
         <div className="flex justify-between">
           <span>Taxa de Entrega:</span>
-          <span className={`font-semibold ${deliveryFee === 0 ? 'text-green-600' : 'text-gray-900'}`}>
-            {deliveryFee === 0 ? "Grátis / Balcão" : formatCurrency(deliveryFee)}
-          </span>
+          {appliedCoupon?.discount_type === 'free_shipping' && deliveryFee > 0 ? (
+            <span className="flex items-center gap-2 font-bold text-green-600">
+              <span className="text-gray-400 line-through">{formatCurrency(deliveryFee)}</span>
+              Frete Grátis
+            </span>
+          ) : (
+            <span className={`font-semibold ${deliveryFee === 0 ? 'text-green-600' : 'text-gray-900'}`}>
+              {deliveryFee === 0 ? "Grátis / Balcão" : formatCurrency(deliveryFee)}
+            </span>
+          )}
         </div>
         {activeDiscount > 0 && (
             <div className="flex justify-between text-green-600 font-bold">
               <span>Desconto aplicado:</span>
-              <span>-{formatCurrency(activeDiscount)}</span>
+              <span>- {formatCurrency(activeDiscount)}</span>
             </div>
         )}
         <div className="flex justify-between border-t border-gray-100 pt-3 font-bold text-gray-900 text-base">

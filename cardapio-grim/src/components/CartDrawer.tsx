@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { CartItem, Theme } from '../types/index.tsx';
+import type { AppliedCoupon } from '../types/checkout.ts';
+import { validateCoupon } from '../api/checkout.ts';
 import { QuantityStepper } from './QuantityStepper.tsx';
 
 interface CartDrawerProps {
@@ -21,7 +23,9 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
   
   // Estados para o Cupom
   const [couponCode, setCouponCode] = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
   
   const navigate = useNavigate();
 
@@ -36,9 +40,20 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
 
   const serviceFee = 0.00;
 
-  const discountValue = appliedCoupon ? subTotalValue * 0.10 : 0; 
   const effectiveDeliveryFee = isPickup ? 0 : deliveryFee;
-  const totalValue = subTotalValue + effectiveDeliveryFee + serviceFee - discountValue;
+  const cartSignature = cart
+    .map(item => `${String(item.id)}:${item.quantity}`)
+    .sort()
+    .join('|');
+  const deliveryCep = String(customerAddressInfo?.cep || '').replace(/\D/g, '');
+  const activeCoupon = appliedCoupon
+    && appliedCoupon.cart_signature === cartSignature
+    && appliedCoupon.delivery_fee === effectiveDeliveryFee
+    && appliedCoupon.delivery_cep === deliveryCep
+    ? appliedCoupon
+    : null;
+  const discountValue = Math.max(0, Number(activeCoupon?.discount_amount) || 0);
+  const totalValue = Math.max(0, subTotalValue + effectiveDeliveryFee + serviceFee - discountValue);
 
   const formatCurrency = (value: number) => 
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -49,16 +64,52 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
   const formattedDiscount = formatCurrency(discountValue);
   const formattedTotal = formatCurrency(totalValue);
 
-  const handleApplyCoupon = () => {
-    if (couponCode.trim().length > 0) {
-      setAppliedCoupon(couponCode.trim().toUpperCase());
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    const couponIsStale = (
+      appliedCoupon.cart_signature !== cartSignature
+      || appliedCoupon.delivery_fee !== effectiveDeliveryFee
+      || appliedCoupon.delivery_cep !== deliveryCep
+    );
+    if (couponIsStale) {
+      setAppliedCoupon(null);
+      setCouponError('O carrinho ou o endereço mudou. Aplique o cupom novamente.');
+    }
+  }, [appliedCoupon, cartSignature, deliveryCep, effectiveDeliveryFee]);
+
+  const handleApplyCoupon = async () => {
+    const normalizedCode = couponCode.trim().toUpperCase();
+    if (!normalizedCode || isApplyingCoupon) return;
+
+    try {
+      setIsApplyingCoupon(true);
+      setCouponError(null);
+      const result = await validateCoupon(
+        companySlug,
+        normalizedCode,
+        subTotalValue,
+        effectiveDeliveryFee,
+      );
+      setAppliedCoupon({
+        ...result.coupon,
+        discount_amount: Math.max(0, Number(result.discount_amount) || 0),
+        cart_signature: cartSignature,
+        delivery_fee: effectiveDeliveryFee,
+        delivery_cep: deliveryCep,
+      });
       setCouponCode('');
+    } catch (error) {
+      setAppliedCoupon(null);
+      setCouponError(error instanceof Error ? error.message : 'Não foi possível validar o cupom.');
+    } finally {
+      setIsApplyingCoupon(false);
     }
   };
 
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
     setCouponCode('');
+    setCouponError(null);
   };
 
   const handleCheckout = () => {
@@ -70,7 +121,7 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
         serviceFee: serviceFee,
         discount: discountValue, 
         total: totalValue, 
-        coupon: appliedCoupon,
+        coupon: activeCoupon,
         isPickup,
         customerAddressInfo, // <--- GARANTINDO O ENVIO DO ENDEREÇO
         customerName,        // <--- GARANTINDO O ENVIO DO NOME
@@ -161,15 +212,15 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
                 })}
               </div>
 
-              <div className="hidden pt-4 border-t border-gray-200/60">
+              <div className="pt-4 border-t border-gray-200/60">
                 <h3 className="text-sm font-bold text-gray-800 mb-3 uppercase tracking-wide">Cupons</h3>
                 
-                {appliedCoupon ? (
+                {activeCoupon ? (
                   <div className="flex items-center justify-between bg-green-50 border border-green-100 p-4 rounded-2xl transition-all animate-in fade-in">
                     <div className="flex items-center gap-3">
                       <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-lg">🏷️</div>
                       <div>
-                        <p className="text-sm font-bold text-green-800">{appliedCoupon}</p>
+                        <p className="text-sm font-bold text-green-800">{activeCoupon.code}</p>
                         <p className="text-xs font-medium text-green-600">Cupom aplicado com sucesso!</p>
                       </div>
                     </div>
@@ -181,20 +232,29 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
                       type="text"
                       placeholder="Código do cupom"
                       value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      onChange={(e) => {
+                        setCouponCode(e.target.value.toUpperCase());
+                        if (couponError) setCouponError(null);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') void handleApplyCoupon();
+                      }}
+                      disabled={isApplyingCoupon}
                       className="flex-1 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent transition-all shadow-sm"
                       style={{ '--tw-ring-color': primaryColor } as any}
                     />
                     <button
-                      onClick={handleApplyCoupon}
-                      disabled={couponCode.trim().length === 0}
-                      style={{ backgroundColor: couponCode.trim().length > 0 ? primaryColor : '#e5e7eb', color: couponCode.trim().length > 0 ? '#fff' : '#9ca3af' }}
+                      type="button"
+                      onClick={() => void handleApplyCoupon()}
+                      disabled={couponCode.trim().length === 0 || isApplyingCoupon}
+                      style={{ backgroundColor: couponCode.trim().length > 0 && !isApplyingCoupon ? primaryColor : '#e5e7eb', color: couponCode.trim().length > 0 && !isApplyingCoupon ? '#fff' : '#9ca3af' }}
                       className="px-5 font-bold text-sm rounded-xl transition-all shadow-sm active:scale-95 disabled:active:scale-100 disabled:shadow-none"
                     >
-                      Aplicar
+                      {isApplyingCoupon ? 'Validando...' : 'Aplicar'}
                     </button>
                   </div>
                 )}
+                {couponError && <p className="mt-2 text-sm font-medium text-red-600" role="alert">{couponError}</p>}
               </div>
             </div>
 
@@ -207,9 +267,16 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
 
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500">Taxa de entrega</span>
-                  <span className={isPickup ? "text-purple-700 font-bold" : (deliveryFee > 0 ? "text-gray-800 font-medium" : "text-green-600 font-bold")}>
-                    {formattedDelivery}
-                  </span>
+                  {activeCoupon?.discount_type === 'free_shipping' && !isPickup ? (
+                    <span className="flex items-center gap-2 font-bold text-green-600">
+                      <span className="text-gray-400 line-through">{formatCurrency(effectiveDeliveryFee)}</span>
+                      Frete Grátis
+                    </span>
+                  ) : (
+                    <span className={isPickup ? "text-purple-700 font-bold" : (deliveryFee > 0 ? "text-gray-800 font-medium" : "text-green-600 font-bold")}>
+                      {formattedDelivery}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex justify-between items-center text-sm">
@@ -222,10 +289,10 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
                   </span>
                 </div>
 
-                {appliedCoupon && (
+                {activeCoupon && (
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-green-600 font-bold flex items-center gap-1">Desconto</span>
-                    <span className="text-green-600 font-bold">-{formattedDiscount}</span>
+                    <span className="text-green-600 font-bold">- {formattedDiscount}</span>
                   </div>
                 )}
                 

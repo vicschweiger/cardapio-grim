@@ -13,7 +13,9 @@ import { CheckoutSummary } from '../components/checkout/CheckoutSummary.tsx';
 import { CheckoutPixState } from '../components/checkout/CheckoutPixState.tsx';
 import { MercadoPagoReturnState } from '../components/checkout/MercadoPagoReturnState.tsx';
 import { CheckoutApiError, createDeliveryOrder, createMercadoPagoCheckout, getPaymentConfig } from '../api/checkout.ts';
+import type { CartItem } from '../types/index.tsx';
 import type {
+  AppliedCoupon,
   CreatedOrderResponse,
   DeliveryOrderPayload,
   MercadoPagoCheckoutPayload,
@@ -30,6 +32,22 @@ const DELIVERY_ONLY_PAYMENT_CONFIG: PaymentConfig = {
   mercadopago: { enabled: false, connected: false, pix_enabled: false, card_enabled: false },
   money: { enabled: true },
   card_on_delivery: { enabled: true },
+};
+
+const cartSignatureFor = (items: CartItem[]) => items
+  .map(item => `${String(item.id)}:${item.quantity}`)
+  .sort()
+  .join('|');
+
+const isAppliedCoupon = (value: unknown): value is AppliedCoupon => {
+  if (!value || typeof value !== 'object') return false;
+  const coupon = value as Partial<AppliedCoupon>;
+  return (
+    typeof coupon.code === 'string'
+    && ['percentage', 'fixed', 'free_shipping'].includes(coupon.discount_type || '')
+    && Number.isFinite(Number(coupon.discount_amount))
+    && typeof coupon.cart_signature === 'string'
+  );
 };
 
 // Utilitário para Capitalizar Nomes corretamente
@@ -135,7 +153,10 @@ export default function CheckoutPage() {
   const [paymentConfigError, setPaymentConfigError] = useState<string | null>(null);
   const [paymentConfigRequest, setPaymentConfigRequest] = useState(0);
   
-  const [appliedCoupon] = useState<string | null>(initialData.coupon);
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(() => (
+    isAppliedCoupon(initialData.coupon) ? initialData.coupon : null
+  ));
+  const [couponInvalidated, setCouponInvalidated] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderCreatedId, setOrderCreatedId] = useState<number | null>(null);
@@ -228,13 +249,38 @@ export default function CheckoutPage() {
     const itemPrice = typeof item.price === 'string' ? parseFloat(item.price) : Number(item.price);
     return acc + ((isNaN(itemPrice) ? 0 : itemPrice) * item.quantity);
   }, 0), [cart]);
+  const cartSignature = useMemo(() => cartSignatureFor(cart), [cart]);
+  const currentCouponCep = deliveryCep.replace(/\D/g, '');
+  const currentCouponDeliveryFee = isPickup ? 0 : deliveryFee;
+  const activeCoupon = appliedCoupon
+    && appliedCoupon.cart_signature === cartSignature
+    && appliedCoupon.delivery_fee === currentCouponDeliveryFee
+    && appliedCoupon.delivery_cep === currentCouponCep
+    ? appliedCoupon
+    : null;
 
   const serviceFee = 0; 
-  const discountValue = useMemo(() => appliedCoupon ? subtotal * 0.10 : initialData.discount, [appliedCoupon, subtotal, initialData.discount]);
+  const discountValue = useMemo(
+    () => Math.max(0, Number(activeCoupon?.discount_amount) || 0),
+    [activeCoupon],
+  );
   const totalAmount = useMemo(() => Math.max(0, subtotal + (isPickup ? 0 : deliveryFee) + serviceFee - discountValue), [subtotal, deliveryFee, isPickup, serviceFee, discountValue]);
   const minimumOrder = Math.max(0, Number(catalog?.min_order) || 0);
   const orderValueWithoutDelivery = Math.max(0, subtotal + serviceFee - discountValue);
   const isBelowMinimumOrder = minimumOrder > 0 && orderValueWithoutDelivery < minimumOrder;
+
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    const couponIsStale = (
+      appliedCoupon.cart_signature !== cartSignature
+      || appliedCoupon.delivery_fee !== currentCouponDeliveryFee
+      || appliedCoupon.delivery_cep !== currentCouponCep
+    );
+    if (couponIsStale) {
+      setAppliedCoupon(null);
+      setCouponInvalidated(true);
+    }
+  }, [appliedCoupon, cartSignature, currentCouponCep, currentCouponDeliveryFee]);
 
   // VALIDAÇÃO DO TROCO 
   const changeForNumber = changeForStr ? parseFloat(changeForStr.replace(/\./g, '').replace(',', '.')) : 0;
@@ -269,7 +315,7 @@ export default function CheckoutPage() {
     if (mercadoPagoCheckout) return;
 
     const mercadoPagoWindow = paymentMethod === 'mercadopago'
-      ? window.open('about:blank', 'grimdev_mercadopago', 'popup=yes,width=520,height=760')
+      ? window.open('about:blank', '_blank', 'popup=yes,width=520,height=760')
       : null;
     if (mercadoPagoWindow) {
       mercadoPagoWindow.document.title = 'Mercado Pago';
@@ -348,7 +394,7 @@ export default function CheckoutPage() {
         change_for: paymentMethod === 'money' && changeForStr ? getChangeForAsNumber() : null,
         is_paid: false,
         status: 'new',
-        coupon_applied: appliedCoupon
+        coupon_applied: activeCoupon?.code || null
       };
 
       if (isMercadoPago) {
@@ -440,6 +486,16 @@ export default function CheckoutPage() {
             </div>
           )}
 
+          {couponInvalidated && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert">
+              <p className="font-bold">O cupom foi removido.</p>
+              <p className="mt-1 text-xs">O carrinho ou o endereço de entrega mudou. Volte ao cardápio e aplique o cupom novamente.</p>
+              <button type="button" onClick={() => navigate(`/${company_slug}`)} className="mt-3 font-bold text-amber-950 underline underline-offset-2">
+                Voltar ao cardápio
+              </button>
+            </div>
+          )}
+
           <CheckoutCustomerForm customerName={customerName} setCustomerName={setCustomerName} customerPhone={customerPhone} setCustomerPhone={setCustomerPhone} />
           
           <CheckoutDeliveryForm 
@@ -514,7 +570,7 @@ export default function CheckoutPage() {
         <div className="lg:col-span-5 lg:sticky lg:top-24 h-fit space-y-6">
           <CheckoutSummary 
             cart={cart} deliveryFee={isPickup ? 0 : deliveryFee} discountValue={discountValue}
-            appliedCoupon={appliedCoupon}
+            appliedCoupon={activeCoupon}
             isSubmitting={isSubmitting} isStoreOpen={catalog?.is_open !== false} formatCurrency={formatCurrency}
             isDeliveryBlocked={isDeliveryBlocked}
             inactiveCartItems={inactiveCartItems}

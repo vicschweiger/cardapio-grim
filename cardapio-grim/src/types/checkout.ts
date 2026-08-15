@@ -2,6 +2,32 @@ export type PaymentMethod = 'money' | 'card' | 'pix_manual' | 'mercadopago';
 
 export type CardType = 'credit' | 'debit';
 
+export type CouponDiscountType = 'percentage' | 'fixed' | 'free_shipping';
+
+export interface CouponValidationBasis {
+  cart_signature: string;
+  delivery_fee: number;
+  delivery_cep: string;
+}
+
+export interface AppliedCoupon extends CouponValidationBasis {
+  code: string;
+  discount_type: CouponDiscountType;
+  discount_value: number;
+  discount_amount: number;
+  apply_to_freight: boolean;
+  min_order_value: number;
+}
+
+export interface ValidateCouponResponse {
+  valid: true;
+  coupon: Omit<AppliedCoupon, keyof CouponValidationBasis | 'discount_amount'>;
+  subtotal: number;
+  delivery_fee: number;
+  discount_amount: number;
+  total_after_discount: number;
+}
+
 export type PaymentStatus =
   | 'pending'
   | 'waiting_confirmation'
@@ -92,6 +118,7 @@ export interface MercadoPagoCheckoutResponse {
   init_point: string;
   sandbox_init_point?: string | null;
   public_key?: string | null;
+  environment?: 'test' | 'production';
   total_amount: string;
 }
 

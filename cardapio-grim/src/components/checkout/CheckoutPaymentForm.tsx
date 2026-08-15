@@ -128,6 +128,7 @@ export function CheckoutPaymentForm({
         mercadoPagoCheckout ? (
           <MercadoPagoWallet
             initPoint={mercadoPagoCheckout.init_point}
+            environment={mercadoPagoCheckout.environment}
           />
         ) : (
           <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 animate-fade-in-up">
