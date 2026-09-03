@@ -33,6 +33,9 @@ export interface CatalogData {
   categories: Category[];
   min_order?: number;
   mercadopago_enabled?: boolean;
+  modules?: {
+    coupon_mode?: boolean;
+  };
 }
 
 export interface CartItem extends Product {

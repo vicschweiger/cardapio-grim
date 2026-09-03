@@ -259,6 +259,7 @@ const formattedCategories = useMemo(() => {
         customerAddressInfo={customerAddressInfo}
         customerName={customerName}
         customerPhone={customerPhone}
+        couponEnabled={catalog.modules?.coupon_mode === true}
         onAddToCart={handleAddToCart}
         onSubtractFromCart={handleSubtractFromCart}
       />

@@ -257,7 +257,8 @@ export default function CheckoutPage() {
   const cartSignature = useMemo(() => cartSignatureFor(cart), [cart]);
   const currentCouponCep = deliveryCep.replace(/\D/g, '');
   const currentCouponDeliveryFee = isPickup ? 0 : deliveryFee;
-  const activeCoupon = appliedCoupon
+  const couponEnabled = catalog?.modules?.coupon_mode === true;
+  const activeCoupon = couponEnabled && appliedCoupon
     && appliedCoupon.cart_signature === cartSignature
     && appliedCoupon.delivery_fee === currentCouponDeliveryFee
     && appliedCoupon.delivery_cep === currentCouponCep
@@ -276,6 +277,11 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (!appliedCoupon) return;
+    if (catalog && !couponEnabled) {
+      setAppliedCoupon(null);
+      setCouponInvalidated(false);
+      return;
+    }
     const couponIsStale = (
       appliedCoupon.cart_signature !== cartSignature
       || appliedCoupon.delivery_fee !== currentCouponDeliveryFee
@@ -285,7 +291,7 @@ export default function CheckoutPage() {
       setAppliedCoupon(null);
       setCouponInvalidated(true);
     }
-  }, [appliedCoupon, cartSignature, currentCouponCep, currentCouponDeliveryFee]);
+  }, [appliedCoupon, cartSignature, catalog, couponEnabled, currentCouponCep, currentCouponDeliveryFee]);
 
   // VALIDAÇÃO DO TROCO 
   const changeForNumber = changeForStr ? parseFloat(changeForStr.replace(/\./g, '').replace(',', '.')) : 0;
@@ -491,7 +497,7 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {couponInvalidated && (
+          {couponEnabled && couponInvalidated && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="alert">
               <p className="font-bold">O cupom foi removido.</p>
               <p className="mt-1 text-xs">O carrinho ou o endereço de entrega mudou. Volte ao cardápio e aplique o cupom novamente.</p>

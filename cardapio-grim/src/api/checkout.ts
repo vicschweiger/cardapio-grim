@@ -9,8 +9,17 @@ import type {
   ValidateCouponResponse,
 } from '../types/checkout';
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'https://web-production-6e1d8.up.railway.app/api').replace(/\/$/, '');
+const API_BASE_URL = (import.meta.env?.VITE_API_URL || 'https://web-production-6e1d8.up.railway.app/api').replace(/\/$/, '');
 const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
+
+export interface PublicPaymentMethods {
+  pix_enabled: boolean;
+  mercadopago_enabled: boolean;
+  mercadopago_pix_enabled: boolean;
+  mercadopago_card_enabled: boolean;
+  money_enabled: boolean;
+  card_enabled: boolean;
+}
 
 export class CheckoutApiError extends Error {
   readonly status: number;
@@ -38,11 +47,26 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-export function getPaymentConfig(companyToken: string, signal?: AbortSignal) {
-  return requestJson<PaymentConfig>(
-    `${API_ORIGIN}/company/payment-config/${encodeURIComponent(companyToken)}/`,
+export function normalizePublicPaymentMethods(methods: PublicPaymentMethods): PaymentConfig {
+  return {
+    pix: { enabled: methods.pix_enabled, key: '', key_type: '', receiver_name: '' },
+    mercadopago: {
+      enabled: methods.mercadopago_enabled,
+      connected: methods.mercadopago_enabled,
+      pix_enabled: methods.mercadopago_pix_enabled,
+      card_enabled: methods.mercadopago_card_enabled,
+    },
+    money: { enabled: methods.money_enabled },
+    card_on_delivery: { enabled: methods.card_enabled },
+  };
+}
+
+export async function getPaymentConfig(companyToken: string, signal?: AbortSignal) {
+  const methods = await requestJson<PublicPaymentMethods>(
+    `${API_BASE_URL}/public/${encodeURIComponent(companyToken)}/payment-methods/`,
     { signal },
   );
+  return normalizePublicPaymentMethods(methods);
 }
 
 export function createDeliveryOrder(companyToken: string, payload: DeliveryOrderPayload) {

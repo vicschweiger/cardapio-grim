@@ -14,11 +14,12 @@ interface CartDrawerProps {
   customerAddressInfo?: any;
   customerName?: string;
   customerPhone?: string;
+  couponEnabled: boolean;
   onAddToCart: (item: CartItem) => void;
   onSubtractFromCart: (productId: string | number) => void;
 }
 
-const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerAddressInfo, customerName, customerPhone, onAddToCart, onSubtractFromCart }: CartDrawerProps) => {
+const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerAddressInfo, customerName, customerPhone, couponEnabled, onAddToCart, onSubtractFromCart }: CartDrawerProps) => {
   const [isOpen, setIsOpen] = useState(false);
   
   // Estados para o Cupom
@@ -46,7 +47,7 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
     .sort()
     .join('|');
   const deliveryCep = String(customerAddressInfo?.cep || '').replace(/\D/g, '');
-  const activeCoupon = appliedCoupon
+  const activeCoupon = couponEnabled && appliedCoupon
     && appliedCoupon.cart_signature === cartSignature
     && appliedCoupon.delivery_fee === effectiveDeliveryFee
     && appliedCoupon.delivery_cep === deliveryCep
@@ -65,6 +66,12 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
   const formattedTotal = formatCurrency(totalValue);
 
   useEffect(() => {
+    if (!couponEnabled) {
+      setAppliedCoupon(null);
+      setCouponCode('');
+      setCouponError(null);
+      return;
+    }
     if (!appliedCoupon) return;
     const couponIsStale = (
       appliedCoupon.cart_signature !== cartSignature
@@ -75,9 +82,10 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
       setAppliedCoupon(null);
       setCouponError('O carrinho ou o endereço mudou. Aplique o cupom novamente.');
     }
-  }, [appliedCoupon, cartSignature, deliveryCep, effectiveDeliveryFee]);
+  }, [appliedCoupon, cartSignature, couponEnabled, deliveryCep, effectiveDeliveryFee]);
 
   const handleApplyCoupon = async () => {
+    if (!couponEnabled) return;
     const normalizedCode = couponCode.trim().toUpperCase();
     if (!normalizedCode || isApplyingCoupon) return;
 
@@ -212,7 +220,7 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
                 })}
               </div>
 
-              <div className="pt-4 border-t border-gray-200/60">
+              {couponEnabled && <div className="pt-4 border-t border-gray-200/60">
                 <h3 className="text-sm font-bold text-gray-800 mb-3 uppercase tracking-wide">Cupons</h3>
                 
                 {activeCoupon ? (
@@ -255,7 +263,7 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
                   </div>
                 )}
                 {couponError && <p className="mt-2 text-sm font-medium text-red-600" role="alert">{couponError}</p>}
-              </div>
+              </div>}
             </div>
 
             <div className="border-t border-gray-200 bg-white p-6 pb-8 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] shrink-0 z-10">
