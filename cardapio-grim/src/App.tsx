@@ -6,12 +6,20 @@ import CheckoutForm from './components/CheckoutForm.tsx';
 import { CatalogProvider } from './context/CatalogContext.tsx'; // Importado do arquivo correto!
 import { DynamicTitle } from './components/DynamicTitle.tsx';
 import { DynamicFavicon } from './components/DynamicFavicon.tsx';
+import { CookiePreferencesProvider } from './privacy/CookiePreferences.tsx';
+import { GtmConsentLoader } from './privacy/GtmConsentLoader.tsx';
+import { LegalDocumentPage } from './privacy/LegalDocumentPage.tsx';
+import { LegalDocumentsProvider } from './privacy/LegalDocumentsContext.tsx';
 
 
 function App() {
   return (
-    <Router>
-      <Routes>
+    <LegalDocumentsProvider>
+      <CookiePreferencesProvider>
+        <Router>
+          <Routes>
+            <Route path="/terms" element={<LegalDocumentPage type="terms" />} />
+            <Route path="/privacy" element={<LegalDocumentPage type="privacy" />} />
         
         {/* ROTA PAI: Tudo que começar com /:company_slug será envolvido pelo CatalogProvider.
           O <Outlet /> é onde as páginas filhas (Menu e Checkout) vão aparecer.
@@ -22,6 +30,7 @@ function App() {
             <CatalogProvider>
               <DynamicFavicon />
               <DynamicTitle />
+              <GtmConsentLoader />
               <Outlet />
             </CatalogProvider>
           } 
@@ -37,8 +46,10 @@ function App() {
         <Route path="/" element={<div className="p-10 text-center font-medium">Por favor, acesse o cardápio de um restaurante, ex: /meu-restaurante</div>} />
         <Route path="*" element={<NotFound message="Página não encontrada" />} />
         
-      </Routes>
-    </Router>
+          </Routes>
+        </Router>
+      </CookiePreferencesProvider>
+    </LegalDocumentsProvider>
   );
 }
 

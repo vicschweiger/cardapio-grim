@@ -11,6 +11,7 @@ import NotFound from '../pages/NotFound.tsx';
 import { DeliveryLookupModal } from '../components/DeliveryLookupModal.tsx';
 import { DeliveryStatusBar } from '../components/DeliveryStatusBar.tsx';
 import type { Category, Product } from '../types';
+import { PrivacyFooter } from '../privacy/PrivacyFooter.tsx';
 
 // Contexto
 import { CatalogContext } from '../context/CatalogContext.tsx';
@@ -253,6 +254,7 @@ const formattedCategories = useMemo(() => {
         onAddToCart={handleAddToCart}
         onSubtractFromCart={handleSubtractFromCart}
       />
+      <PrivacyFooter />
     </div>
   );
 };

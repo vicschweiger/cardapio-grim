@@ -1,5 +1,5 @@
 import { useState, useContext, useMemo, useEffect, useRef } from 'react';
-import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Store, Loader2, AlertCircle } from 'lucide-react';
 
 import { CatalogContext } from '../context/CatalogContext.tsx';
@@ -24,6 +24,8 @@ import type {
   PaymentConfig,
   PaymentMethod,
 } from '../types/checkout.ts';
+import { PrivacyFooter } from '../privacy/PrivacyFooter.tsx';
+import { useLegalDocuments } from '../privacy/LegalDocumentsContext.tsx';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://web-production-6e1d8.up.railway.app/api';
 
@@ -67,6 +69,8 @@ export default function CheckoutPage() {
   const { company_slug } = useParams<{ company_slug: string }>();
   const location = useLocation();
   const navigate = useNavigate();
+  const { getDocument } = useLegalDocuments();
+  const privacyDocument = getDocument('privacy');
   
   const context = useContext(CatalogContext);
   if (!context) throw new Error("CheckoutPage deve ser renderizada dentro de um CatalogProvider");
@@ -538,6 +542,10 @@ export default function CheckoutPage() {
             isSubmitting={isSubmitting}
           />
 
+          <aside className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-700">
+            Seus dados serão usados pelo estabelecimento e pela Grim para processar e acompanhar este pedido. Consulte a <Link to="/privacy" target="_blank" rel="noreferrer" className="font-bold text-teal-800 underline underline-offset-2 focus:outline-none focus:ring-4 focus:ring-teal-100">Política de Privacidade{privacyDocument ? ` — versão ${privacyDocument.version}` : ''}</Link>.
+          </aside>
+
           {submitError && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-center text-sm text-red-700" role="alert">{submitError}</p>}
 
           <div className="lg:hidden">
@@ -585,6 +593,7 @@ export default function CheckoutPage() {
           />
         </div>
       </div>
+      <PrivacyFooter />
     </div>
   );
 }
