@@ -1,12 +1,15 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import grimLogo from '../assets/white-logo.png';
 import {
   ArrowRight,
   BellRing,
+  Camera,
   ChartNoAxesCombined,
   ChefHat,
+  ChevronDown,
   CircleDollarSign,
   CreditCard,
+  Globe,
   MapPin,
   MenuSquare,
   MonitorSmartphone,
@@ -24,6 +27,7 @@ import { useNavigate } from 'react-router-dom';
 
 export default function DashboardLanding() {
   const navigate = useNavigate();
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
 
   useEffect(() => {
     document.title = 'Gestor de Pedidos | Cardápio online, pedidos e pagamentos';
@@ -49,6 +53,23 @@ export default function DashboardLanding() {
         @keyframes pulseGlow {
           0%, 100% { box-shadow: 0 0 0 rgba(79, 70, 229, 0.1); }
           50% { box-shadow: 0 0 22px rgba(79, 70, 229, 0.2); }
+        }
+        @keyframes fadeUp {
+          from {
+            opacity: 0;
+            transform: translateY(18px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .reveal {
+          opacity: 0;
+          animation: fadeUp 0.7s ease forwards;
+        }
+        .faq-panel {
+          transition: max-height 0.35s ease, opacity 0.25s ease, margin-top 0.25s ease;
         }
       `}</style>
 
@@ -144,7 +165,7 @@ export default function DashboardLanding() {
         </div>
       </header>
 
-      <section id="problem" className="container mx-auto px-4 py-16 max-w-6xl">
+      <section id="problem" className="reveal container mx-auto px-4 py-16 max-w-6xl">
         <div className="mb-8 flex items-center gap-3 text-indigo-600">
           <ShieldCheck className="h-5 w-5" />
           <span className="font-semibold uppercase tracking-[0.12em] text-xs">O problema</span>
@@ -174,7 +195,7 @@ export default function DashboardLanding() {
         </div>
       </section>
 
-      <section id="howitworks" className="bg-gray-50 py-16">
+      <section id="howitworks" className="reveal bg-gray-50 py-16">
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700">Como funciona</div>
@@ -200,7 +221,7 @@ export default function DashboardLanding() {
         </div>
       </section>
 
-      <section id="pillars" className="container mx-auto px-4 py-16 max-w-6xl">
+      <section id="pillars" className="reveal container mx-auto px-4 py-16 max-w-6xl">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-violet-700">Quatro pilares</div>
           <h2 className="mt-4 text-3xl font-bold">Tudo que seu negócio precisa</h2>
@@ -224,7 +245,7 @@ export default function DashboardLanding() {
         </div>
       </section>
 
-      <section id="catalog" className="bg-gradient-to-b from-indigo-50 to-white py-16">
+      <section id="catalog" className="reveal bg-gradient-to-b from-indigo-50 to-white py-16">
         <div className="container mx-auto px-4 max-w-6xl grid lg:grid-cols-[0.9fr_1.1fr] gap-10 items-center">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700 shadow-sm">
@@ -251,7 +272,7 @@ export default function DashboardLanding() {
         </div>
       </section>
 
-      <section id="kitchen" className="container mx-auto px-4 py-16 max-w-6xl">
+      <section id="kitchen" className="reveal container mx-auto px-4 py-16 max-w-6xl">
         <div className="grid lg:grid-cols-[1fr_0.9fr] gap-8 items-center">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-amber-700"><ChefHat className="h-4 w-4" /> Cozinha</div>
@@ -275,7 +296,7 @@ export default function DashboardLanding() {
         </div>
       </section>
 
-      <section id="delivery" className="bg-gray-50 py-16">
+      <section id="delivery" className="reveal bg-gray-50 py-16">
         <div className="container mx-auto px-4 max-w-6xl grid lg:grid-cols-[0.9fr_1.1fr] gap-10 items-center">
           <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="grid gap-4">
@@ -297,7 +318,7 @@ export default function DashboardLanding() {
         </div>
       </section>
 
-      <section id="payments" className="container mx-auto px-4 py-16 max-w-6xl">
+      <section id="payments" className="reveal container mx-auto px-4 py-16 max-w-6xl">
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700"><CreditCard className="h-4 w-4" /> Pagamentos</div>
         </div>
@@ -324,7 +345,7 @@ export default function DashboardLanding() {
         </div>
       </section>
 
-      <section id="plan" className="bg-gradient-to-r from-indigo-50 to-violet-50 py-16">
+      <section id="plan" className="reveal bg-gradient-to-r from-indigo-50 to-violet-50 py-16">
         <div className="container mx-auto px-4 max-w-4xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700 shadow-sm"><Rocket className="h-4 w-4" /> Plano</div>
           <h2 className="mt-4 text-3xl font-bold mb-4">Gestor de Pedidos — Basic</h2>
@@ -337,7 +358,7 @@ export default function DashboardLanding() {
         </div>
       </section>
 
-      <section id="evolution" className="container mx-auto px-4 py-16 max-w-6xl">
+      <section id="evolution" className="reveal container mx-auto px-4 py-16 max-w-6xl">
         <div className="rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
           <div className="inline-flex items-center gap-2 rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700"><Rocket className="h-4 w-4" /> Evolução contínua</div>
           <h2 className="mt-4 text-3xl font-bold mb-4">Um produto que continua evoluindo.</h2>
@@ -345,7 +366,7 @@ export default function DashboardLanding() {
         </div>
       </section>
 
-      <section id="faq" className="bg-gray-50 py-16">
+      <section id="faq" className="reveal bg-gray-50 py-16">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-2 rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-violet-700">FAQ</div>
@@ -364,17 +385,32 @@ export default function DashboardLanding() {
               ['Há fidelidade ou taxa de implantação?', 'Não. O Basic não possui taxa de implantação, prazo mínimo de fidelidade ou multa de cancelamento.'],
               ['Como cancelo?', 'O cancelamento pode ser solicitado a qualquer momento. A cobrança recorrente é cancelada, não há novas mensalidades e o acesso permanece até o fim do período já pago. Valores já pagos não são devolvidos proporcionalmente, ressalvados os direitos previstos em lei.'],
               ['Novos recursos serão adicionados?', 'Sim. A plataforma evolui gradativamente, sem promessa de data para recursos ainda não disponibilizados.'],
-            ].map(([question, answer]) => (
-              <div key={question} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <dt className="font-semibold mb-2">{question}</dt>
-                <dd className="text-gray-600">{answer}</dd>
-              </div>
-            ))}
+            ].map(([question, answer], index) => {
+              const isOpen = openFaq === index;
+              return (
+                <div key={question} className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaq(isOpen ? null : index)}
+                    className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left"
+                    aria-expanded={isOpen}
+                  >
+                    <dt className="font-semibold text-gray-900">{question}</dt>
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+                      <ChevronDown className="h-4 w-4" />
+                    </span>
+                  </button>
+                  <div className={`faq-panel overflow-hidden px-5 ${isOpen ? 'max-h-40 opacity-100 mt-1 pb-5' : 'max-h-0 opacity-0 pb-0'}`}>
+                    <dd className="text-gray-600 leading-relaxed">{answer}</dd>
+                  </div>
+                </div>
+              );
+            })}
           </dl>
         </div>
       </section>
 
-      <section id="final-cta" className="py-16 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+      <section id="final-cta" className="reveal py-16 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
         <div className="container mx-auto px-4 max-w-4xl text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-indigo-50"><Sparkles className="h-4 w-4" /> Demonstração</div>
           <h3 className="mt-4 text-3xl font-bold mb-4">Veja o Gestor de Pedidos funcionando com um pedido real.</h3>
@@ -386,19 +422,25 @@ export default function DashboardLanding() {
         </div>
       </section>
 
-      <footer className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white b-0 py-8">
+      <footer className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-8">
         <div className="container mx-auto px-4 max-w-6xl flex flex-col md:flex-row items-center justify-between gap-4">
           <a href="https://grimdev.com.br" target="_blank" rel="noreferrer" className="flex items-center gap-3 text-white/90 hover:text-white transition-colors">
             <img src={grimLogo} alt="Grim Developments" className="h-10 w-auto object-contain" />
             <span className="font-semibold tracking-wide">Grim Developments</span>
           </a>
 
+          <div className="flex items-center gap-3 text-sm text-slate-300">
+            <a href="https://grimdev.com.br" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 hover:text-white hover:bg-white/10 transition-all duration-200" aria-label="Site da Grim Developments">
+              <Globe className="h-4 w-4" />
+              <span>Site</span>
+            </a>
+            <a href="https://instagram.com/grim.dev" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-2 hover:text-white hover:bg-white/10 transition-all duration-200" aria-label="Instagram da Grim Developments">
+              <Camera className="h-4 w-4" />
+              <span>Instagram</span>
+            </a>
+          </div>
+
           <div className="text-sm text-slate-300 text-center md:text-right">
-            <div>
-              <a href="https://grimdev.com.br" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">
-                grimdev.com.br
-              </a>
-            </div>
             <div>Desenvolvido por Grim Developments © 2026</div>
           </div>
         </div>
