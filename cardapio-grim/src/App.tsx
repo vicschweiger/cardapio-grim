@@ -1,6 +1,8 @@
 // src/App.tsx
 import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
 import MenuPage from './pages/MenuPage.tsx';
+import HomeLanding from './pages/HomeLanding.tsx';
+import DashboardLanding from './pages/DashboardLanding.tsx';
 import NotFound from './pages/NotFound.tsx';
 import CheckoutForm from './components/CheckoutForm.tsx';
 import { CatalogProvider } from './context/CatalogContext.tsx'; // Importado do arquivo correto!
@@ -43,7 +45,8 @@ function App() {
         </Route>
 
         {/* Rotas genéricas que NÃO precisam do carrinho */}
-        <Route path="/" element={<div className="p-10 text-center font-medium">Por favor, acesse o cardápio de um restaurante, ex: /meu-restaurante</div>} />
+        <Route path="/" element={<HomeLanding />} />
+        <Route path="/dashboard" element={<DashboardLanding />} />
         <Route path="*" element={<NotFound message="Página não encontrada" />} />
         
           </Routes>
