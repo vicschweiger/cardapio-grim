@@ -1,4 +1,3 @@
-// src/components/CategoryCarousel.tsx
 import type { Category, ThemeColors } from '../types/index.tsx';
 
 interface CategoryCarouselProps {
@@ -9,33 +8,28 @@ interface CategoryCarouselProps {
 }
 
 const CategoryCarousel = ({ categories, selectedCategory, onSelectCategory, theme }: CategoryCarouselProps) => {
-  // Só renderiza o carrossel se houver categorias para exibir.
-  if (!categories || categories.length === 0) {
-    return null;
-  }
+  if (!categories?.length) return null;
 
   return (
-    <div className="py-4 overflow-x-auto px-5">
-      <div className="flex space-x-3">
-        {categories.map((category) => (
-          <button
-            key={category.id}
-            onClick={() => onSelectCategory(category.id)}
-            className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
-              selectedCategory === category.id
-                ? 'bg-gray-200 text-gray-800'
-                : 'text-black'
-            }`}
-            style={{
-              backgroundColor: selectedCategory === category.id ? theme.primary : undefined,
-              color: selectedCategory === category.id ? theme.text : undefined,
-            }}
-          >
-            {category.name}
-          </button>
-        ))}
+    <nav aria-label="Categorias do cardápio" className="overflow-x-auto px-2 py-2.5 sm:px-3">
+      <div className="flex gap-1.5">
+        {categories.map(category => {
+          const isSelected = selectedCategory === category.id;
+          return (
+            <button
+              type="button"
+              key={category.id}
+              onClick={() => onSelectCategory(category.id)}
+              aria-current={isSelected ? 'page' : undefined}
+              className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition-all focus:outline-none focus:ring-4 focus:ring-black/10 ${isSelected ? 'shadow-sm' : 'text-stone-600 hover:bg-stone-100 hover:text-stone-950'}`}
+              style={isSelected ? { backgroundColor: theme.primary, color: theme.text } : undefined}
+            >
+              {category.name}
+            </button>
+          );
+        })}
       </div>
-    </div>
+    </nav>
   );
 };
 

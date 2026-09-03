@@ -1,99 +1,60 @@
+import { Clock3, ShoppingBag } from 'lucide-react';
+
 interface HeaderProps {
   name: string;
-  coverImage?: string; 
-  logoUrl?: string;    
+  coverImage?: string;
+  logoUrl?: string;
   isOpen: boolean;
   minOrder?: number | string | null;
+  primaryColor?: string;
 }
 
-const Header = ({ name, logoUrl, isOpen, minOrder }: HeaderProps) => {
+const Header = ({ name, coverImage, logoUrl, isOpen, minOrder, primaryColor = '#0f766e' }: HeaderProps) => {
   const parsedMinOrder = typeof minOrder === 'string' ? parseFloat(minOrder) : minOrder;
-  
-  const isValidMinOrder = 
-    parsedMinOrder !== undefined && 
-    parsedMinOrder !== null && 
-    !isNaN(parsedMinOrder) && 
-    parsedMinOrder > 0;
-
+  const isValidMinOrder = parsedMinOrder !== undefined
+    && parsedMinOrder !== null
+    && !Number.isNaN(parsedMinOrder)
+    && parsedMinOrder > 0;
   const minOrderText = isValidMinOrder
     ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parsedMinOrder)
-    : 'Não definido';
+    : 'Sem mínimo';
 
   return (
-    <header className="bg-white w-full border-b border-gray-100 shadow-sm relative z-10">
-      {/* Container flexível com justify-between para espalhar os itens */}
-      <div className="max-w-3xl mx-auto flex items-center justify-between px-4 py-6 sm:px-6">
-        
-        {/* BLOCO ESQUERDO: Avatar + Informações */}
-        <div className="flex items-center gap-4">
-          {/* AVATAR / LOGO */}
-          <div className="shrink-0 relative">
+    <header className="relative isolate overflow-hidden border-b border-stone-200/80 bg-white">
+      {coverImage && (
+        <div className="absolute inset-0 -z-10" aria-hidden="true">
+          <img src={coverImage} alt="" className="h-full w-full object-cover opacity-[0.09] blur-[1px]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/95 to-white/75" />
+        </div>
+      )}
+      <div className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: primaryColor }} aria-hidden="true" />
+
+      <div className="mx-auto flex w-full max-w-4xl items-center gap-4 px-4 py-6 sm:gap-6 sm:px-6 sm:py-8">
+        <div className="relative shrink-0">
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl border border-white bg-white p-1.5 shadow-[0_12px_35px_rgba(28,25,23,0.13)] ring-1 ring-stone-200 sm:h-24 sm:w-24">
             {logoUrl ? (
-              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center overflow-hidden p-1.5">
-                <img
-                  src={logoUrl}
-                  alt={`Logo de ${name}`}
-                  className="w-full h-full object-contain"
-                />
-              </div>
+              <img src={logoUrl} alt={`Logo de ${name}`} className="h-full w-full rounded-xl object-contain" />
             ) : (
-              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center border border-gray-200 shadow-sm">
-                <span className="text-gray-400 text-3xl sm:text-4xl font-bold uppercase">
-                  {name ? name.charAt(0) : ''}
-                </span>
-              </div>
+              <span className="text-3xl font-black uppercase text-stone-400 sm:text-4xl">{name?.charAt(0)}</span>
             )}
           </div>
+          <span className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-[3px] border-white ${isOpen ? 'bg-emerald-500' : 'bg-rose-500'}`} aria-hidden="true" />
+        </div>
 
-          {/* NOME E STATUS */}
-          <div className="flex flex-col justify-center">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight leading-none mb-2 capitalize">
-              {name}
-            </h1>
-
-            <div className="flex items-center gap-2">
-              <div className="relative flex h-3 w-3 items-center justify-center">
-                {isOpen && (
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                )}
-                <span
-                  className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
-                    isOpen ? 'bg-green-500' : 'bg-red-500'
-                  }`}
-                ></span>
-              </div>
-              
-              <span
-                className={`text-sm font-semibold tracking-wide ${
-                  isOpen ? 'text-green-600' : 'text-red-500'
-                }`}
-              >
-                {isOpen ? 'Aberto agora' : 'Fechado no momento'}
-              </span>
-            </div>
+        <div className="min-w-0 flex-1">
+          <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.2em] text-stone-400">Cardápio digital</p>
+          <h1 className="truncate text-2xl font-black leading-tight tracking-tight text-stone-950 sm:text-4xl">{name}</h1>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${isOpen ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200' : 'bg-rose-50 text-rose-700 ring-1 ring-rose-200'}`}>
+              <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
+              {isOpen ? 'Aberto agora' : 'Fechado no momento'}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-600 ring-1 ring-stone-200">
+              <ShoppingBag className="h-3.5 w-3.5" aria-hidden="true" />
+              Pedido mínimo: {minOrderText}
+            </span>
           </div>
         </div>
-
-        {/* BLOCO DIREITO: Pedido Mínimo justificado à direita */}
-        <div className="hidden sm:flex flex-col items-end text-right ml-auto">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-            Pedido mínimo
-          </span>
-          <span className="text-xs font-bold tracking-wider text-gray-500">
-            {minOrderText}
-          </span>
-        </div>
-
-      </div>
-
-      {/* MOBILE: Pedido Mínimo exibido embaixo para não espremer o título em telas pequenas */}
-      <div className="sm:hidden gap-2 w-full border-t border-gray-50 bg-gray-50/50 px-4 py-2.5 flex justify-start items-center text-center">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-          Pedido mínimo
-        </span>
-        <span className="text-xs font-bold tracking-wider text-gray-500">
-          {minOrderText}
-        </span>
       </div>
     </header>
   );

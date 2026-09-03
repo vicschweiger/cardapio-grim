@@ -137,11 +137,11 @@ const CartDrawer = ({ cart, theme, companySlug, deliveryFee, isPickup, customerA
   return (
     <>
       {/* BOTÃO FLUTUANTE (BARRA ESTILO iFOOD) */}
-      <div className="fixed bottom-5 left-0 right-0 z-40 flex justify-center px-4 pointer-events-none">
+      <div className="pointer-events-none fixed bottom-5 left-0 right-0 z-40 flex justify-center px-4 sm:bottom-6">
         <button
           onClick={() => setIsOpen(true)}
           style={{ backgroundColor: primaryColor }}
-          className="pointer-events-auto w-full max-w-md flex items-center justify-between px-5 py-4 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.2)] text-white transition-all active:scale-95 hover:-translate-y-1"
+          className="pointer-events-auto flex w-full max-w-md items-center justify-between rounded-2xl border border-white/20 px-5 py-4 text-white shadow-[0_16px_45px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-1 hover:brightness-95 focus:outline-none focus:ring-4 focus:ring-black/15 active:scale-[0.98]"
         >
           <div className="flex items-center gap-3">
             <div className="bg-white/20 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2">

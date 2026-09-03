@@ -42,10 +42,10 @@ export function DeliveryStatusBar({ isPickup, deliveryFee, customerAddressInfo, 
   };
 
   return (
-    <div className="mx-auto w-full p-4 sm:p-5 mt-5 max-w-3xl shadow-sm rounded-xl flex items-center justify-between sticky top-0 z-20 bg-white/95 backdrop-blur-sm border border-gray-100">
+    <section aria-label="Entrega do pedido" className="relative z-20 mx-auto mt-5 flex w-[calc(100%-2rem)] max-w-4xl items-center justify-between rounded-2xl border border-white/80 bg-white/90 p-3.5 shadow-[0_10px_30px_rgba(28,25,23,0.08)] backdrop-blur-xl sm:w-[calc(100%-3rem)] sm:p-4">
       <div className="flex items-center gap-3 overflow-hidden">
         <div 
-          className="w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 bg-opacity-10"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-11 sm:w-11"
           style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
         >
           {isPickup ? <Store className="w-5 h-5" /> : <MapPin className="w-5 h-5" />}
@@ -78,12 +78,12 @@ export function DeliveryStatusBar({ isPickup, deliveryFee, customerAddressInfo, 
 
         <button 
           onClick={onEdit}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-colors bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200 shadow-2xs"
+          className="flex items-center gap-1.5 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs font-bold text-stone-700 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white focus:outline-none focus:ring-4 focus:ring-stone-200"
         >
           <Pencil className="w-3.5 h-3.5 text-gray-500" />
           Alterar
         </button>
       </div>
-    </div>
+    </section>
   );
 }

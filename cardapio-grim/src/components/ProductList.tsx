@@ -31,7 +31,7 @@ export default function ProductList({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
       {products.map(product => {
         // Encontra quantos deste produto estão no carrinho para passar para o Card
         const cartItem = cart.find(item => item.id === product.id);

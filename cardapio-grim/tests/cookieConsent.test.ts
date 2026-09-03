@@ -7,6 +7,7 @@ import {
   parseCookiePreference,
   shouldLoadNonEssentialTags,
 } from '../src/privacy/cookieConsent.ts';
+import { legalDocumentHref, restaurantPath } from '../src/privacy/legalNavigation.ts';
 
 const NOW = new Date('2026-09-03T12:00:00.000Z');
 
@@ -50,4 +51,15 @@ test('preferência registra versão, data e expira em no máximo seis meses', ()
 test('nova versão da política exige nova escolha', () => {
   const preference = createCookiePreference('accept', '1.0', NOW);
   assert.equal(parseCookiePreference(JSON.stringify(preference), '2.0', NOW), null);
+});
+
+test('documentos jurídicos preservam o restaurante de origem no retorno', () => {
+  assert.equal(legalDocumentHref('terms', 'ABC-123'), '/terms?restaurant=ABC-123');
+  assert.equal(legalDocumentHref('privacy', 'loja_teste'), '/privacy?restaurant=loja_teste');
+  assert.equal(restaurantPath('ABC-123'), '/ABC-123');
+});
+
+test('retorno jurídico rejeita tokens inseguros', () => {
+  assert.equal(restaurantPath('../admin'), '/');
+  assert.equal(legalDocumentHref('privacy', 'token?redirect=x'), '/privacy');
 });

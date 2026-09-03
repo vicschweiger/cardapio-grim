@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useContext } from 'react';
+import { useState, useEffect, useMemo, useContext, type CSSProperties } from 'react';
 import { useParams } from 'react-router-dom';
 
 // Componentes
@@ -190,7 +190,7 @@ const formattedCategories = useMemo(() => {
   const backgroundColor = catalog.theme?.background || '#fafaf9';
 
   return (
-    <div className="min-h-screen font-sans transition-colors duration-300 relative overflow-hidden" style={{ backgroundColor }}>
+    <div className="menu-page relative min-h-screen overflow-hidden font-sans transition-colors duration-300" style={{ backgroundColor, '--restaurant-accent': primaryColor } as CSSProperties}>
       
       {/* MODAL DE IDENTIFICAÇÃO E FRETE */}
       {isLookupModalOpen && (
@@ -204,13 +204,14 @@ const formattedCategories = useMemo(() => {
         />
       )}
 
-      <div className="w-full bg-white/5 shadow-sm relative z-10">
+      <div className="relative z-10 w-full shadow-sm">
         <Header 
           name={catalog.name} 
           coverImage={catalog.cover_image} 
           logoUrl={catalog.logo_url} 
           isOpen={catalog.is_open} 
           minOrder={catalog.min_order} // <--- Passando o campo do catálogo
+          primaryColor={primaryColor}
         />
       </div>
       
@@ -225,18 +226,25 @@ const formattedCategories = useMemo(() => {
         />
       )}
       
-      <main className="max-w-3xl mx-auto w-full px-4 sm:px-6 pt-4 pb-32 animate-fade-in-up gap-5 flex flex-col relative z-10 min-h-screen shadow-2xl shadow-black/5"> 
+      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-4xl animate-fade-in-up flex-col gap-5 px-4 pb-32 pt-5 sm:px-6 sm:pt-7">
         {!catalog.is_open && (
-          <div className="rounded-lg bg-red-50 border border-red-100 p-4 text-center">
+          <div className="rounded-2xl border border-red-200 bg-red-50/95 p-4 text-center shadow-sm">
             <p className="text-sm font-medium text-red-800">
               Estamos fechados no momento! Você ainda pode ver o cardápio, mas não será possível enviar pedidos.
             </p>
           </div>
         )}
-        <div className="sticky top-2 z-30 w-full h-full shadow-sm/30 backdrop-blur-md transition-all border border-stone-200/40 rounded-xl mt-2" style={{ backgroundColor: `${backgroundColor}E6` }}>
+        <section className="flex items-end justify-between gap-4 px-1 pt-1">
+          <div>
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-stone-400">Feito para você</p>
+            <h2 className="mt-1 text-xl font-black tracking-tight text-stone-900 sm:text-2xl">Escolha seus favoritos</h2>
+          </div>
+          <span className="hidden rounded-full bg-white/75 px-3 py-1 text-xs font-bold text-stone-500 ring-1 ring-stone-200 sm:block">{filteredProducts.length} {filteredProducts.length === 1 ? 'item' : 'itens'}</span>
+        </section>
+        <div className="sticky top-3 z-30 mt-1 w-full rounded-2xl border border-white/80 bg-white/85 shadow-[0_10px_30px_rgba(28,25,23,0.08)] backdrop-blur-xl transition-all">
           <CategoryCarousel categories={formattedCategories} selectedCategory={selectedCategory} onSelectCategory={setSelectedCategory} theme={catalog.theme} />
         </div>
-        <div className="min-h-[50vh] mt-2">
+        <div className="min-h-[50vh]">
           <ProductList products={filteredProducts} cart={cart} primaryColor={primaryColor} onAddToCart={handleAddToCart} onSubtractFromCart={handleSubtractFromCart} />
         </div>
       </main>
