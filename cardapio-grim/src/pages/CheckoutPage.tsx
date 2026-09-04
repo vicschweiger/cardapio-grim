@@ -396,6 +396,7 @@ export default function CheckoutPage() {
         ...commonPayload,
         items: mercadoPagoItems,
         payment_method: 'mercadopago',
+        failure_url: `${window.location.origin}/${encodeURIComponent(company_slug!)}/checkout`,
       };
       const deliveryOrderPayload: DeliveryOrderPayload = {
         ...commonPayload,

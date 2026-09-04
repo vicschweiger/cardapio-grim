@@ -99,6 +99,7 @@ export interface DeliveryOrderPayload extends CommonOrderPayload {
 export interface MercadoPagoCheckoutPayload extends CommonOrderPayload {
   items: MercadoPagoItemPayload[];
   payment_method: 'mercadopago';
+  failure_url: string;
 }
 
 export interface CreatedOrderResponse {
