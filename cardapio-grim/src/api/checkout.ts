@@ -8,9 +8,17 @@ import type {
   PixPaymentDeclaredResponse,
   ValidateCouponResponse,
 } from '../types/checkout';
+import type { TrackedOrder } from '../orders/tracking';
 
 const API_BASE_URL = (import.meta.env?.VITE_API_URL || 'https://web-production-6e1d8.up.railway.app/api').replace(/\/$/, '');
 const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
+
+export function getTrackedOrders(companyToken: string, phone: string, signal?: AbortSignal) {
+  const params = new URLSearchParams({ company_token: companyToken, phone });
+  return requestJson<TrackedOrder[]>(`${API_BASE_URL}/public/orders/track/?${params}`, {
+    signal, cache: 'no-store', referrerPolicy: 'no-referrer',
+  });
+}
 
 export interface PublicPaymentMethods {
   pix_enabled: boolean;

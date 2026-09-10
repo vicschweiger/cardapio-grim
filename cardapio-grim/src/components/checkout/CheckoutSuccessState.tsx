@@ -1,12 +1,15 @@
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
+import { TrackOrderLink } from './TrackOrderLink';
 
 interface CheckoutSuccessStateProps {
   orderId: number;
+  orderNumber?: number | null;
+  customerPhone?: string;
   companySlug: string;
 }
 
-export function CheckoutSuccessState({ orderId, companySlug }: CheckoutSuccessStateProps) {
+export function CheckoutSuccessState({ orderNumber, customerPhone, companySlug }: CheckoutSuccessStateProps) {
   const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4 font-sans">
@@ -15,12 +18,13 @@ export function CheckoutSuccessState({ orderId, companySlug }: CheckoutSuccessSt
           <CheckCircle2 className="w-16 h-16 animate-bounce" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-gray-900">Pedido Recebido!</h2>
+          <h2 className="text-2xl font-bold text-gray-900">{orderNumber ? `Pedido #${orderNumber} recebido!` : 'Pedido recebido!'}</h2>
           <p className="text-sm text-gray-500">O seu pedido já foi enviado diretamente para a nossa cozinha e está sendo preparado.</p>
         </div>
         <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 text-sm font-semibold text-gray-700">
-          Senha do Pedido: <span className="text-teal-600 font-mono text-base">#{orderId.toString().slice(-6)}</span>
+          Senha do Pedido: <span className="text-teal-600 font-mono text-base">{orderNumber ? `#${orderNumber}` : 'Consulte o acompanhamento'}</span>
         </div>
+        <TrackOrderLink companySlug={companySlug} phone={customerPhone} />
         <button 
           onClick={() => navigate(`/${companySlug}`)}
           className="w-full bg-teal-600 text-white rounded-xl py-3 font-bold hover:bg-teal-700 shadow-md shadow-teal-600/10 transition-colors"

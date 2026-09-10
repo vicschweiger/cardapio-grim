@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Check, CheckCircle2, Copy, Loader2 } from 'lucide-react';
 import { declarePixPayment } from '../../api/checkout';
 import type { CreatedOrderResponse } from '../../types/checkout';
+import { TrackOrderLink } from './TrackOrderLink';
 
 interface CheckoutPixStateProps {
   order: CreatedOrderResponse;
   companySlug: string;
+  customerPhone?: string;
   onBackToMenu: () => void;
 }
 
@@ -14,7 +16,7 @@ const formatCurrency = (value: string | undefined) => new Intl.NumberFormat('pt-
   currency: 'BRL',
 }).format(Number(value || 0));
 
-export function CheckoutPixState({ order, onBackToMenu }: CheckoutPixStateProps) {
+export function CheckoutPixState({ order, companySlug, customerPhone, onBackToMenu }: CheckoutPixStateProps) {
   const [isCopying, setIsCopying] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isDeclaring, setIsDeclaring] = useState(false);
@@ -52,7 +54,7 @@ export function CheckoutPixState({ order, onBackToMenu }: CheckoutPixStateProps)
     <main className="min-h-screen bg-gray-50 px-4 py-6 sm:py-10 font-sans">
       <section className="mx-auto w-full max-w-md rounded-2xl border border-gray-100 bg-white p-5 sm:p-8 text-center shadow-xl space-y-5">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Pedido #{order.order_id}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{order.order_number ? `Pedido #${order.order_number} recebido!` : 'Pedido recebido!'}</h1>
           <p className="mt-1 text-lg font-semibold text-teal-700">Total: {formatCurrency(order.total_amount)}</p>
         </div>
 
@@ -99,6 +101,7 @@ export function CheckoutPixState({ order, onBackToMenu }: CheckoutPixStateProps)
         )}
 
         {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700" role="alert">{error}</p>}
+        <TrackOrderLink companySlug={companySlug} phone={customerPhone} />
         {declared && <button type="button" onClick={onBackToMenu} className="w-full min-h-12 rounded-xl bg-teal-600 px-4 font-bold text-white">Voltar ao cardápio</button>}
       </section>
     </main>

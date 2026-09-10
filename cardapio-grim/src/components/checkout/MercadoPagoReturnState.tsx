@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle2, Clock3, Loader2, RotateCw } from 'lucide-react';
 import { getOrderPaymentStatus } from '../../api/checkout';
 import type { MercadoPagoReturnResult, OrderStatusResponse } from '../../types/checkout';
+import { TrackOrderLink } from './TrackOrderLink';
 
 interface MercadoPagoReturnStateProps {
   companySlug: string;
@@ -53,7 +54,7 @@ export function MercadoPagoReturnState({ companySlug, orderId, returnResult, onO
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-6 sm:py-10 font-sans">
       <section className="mx-auto w-full max-w-md rounded-2xl border border-gray-100 bg-white p-5 sm:p-8 text-center shadow-xl space-y-5">
-        <h1 className="text-2xl font-bold text-gray-900">Pedido #{orderId}</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{order?.order_number ? `Pedido #${order.order_number}${approved ? ' recebido!' : ''}` : 'Seu pedido'}</h1>
 
         {isLoading && !order && <div className="py-10 text-gray-500" role="status"><Loader2 className="mx-auto mb-3 h-9 w-9 animate-spin" /><p>Consultando pagamento...</p></div>}
 
@@ -76,6 +77,7 @@ export function MercadoPagoReturnState({ companySlug, orderId, returnResult, onO
           </>
         )}
 
+        {approved && <TrackOrderLink companySlug={companySlug} />}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {!approved && <button type="button" onClick={() => void refreshStatus()} disabled={isLoading} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-teal-600 px-4 font-bold text-teal-700 disabled:opacity-60"><RotateCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />Atualizar status</button>}
           <button type="button" onClick={onBackToMenu} className="min-h-12 rounded-xl bg-teal-600 px-4 font-bold text-white">Voltar ao cardápio</button>

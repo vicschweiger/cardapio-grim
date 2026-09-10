@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useContext, type CSSProperties } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 // Componentes
 import Header from '../components/Header.tsx';
@@ -213,6 +213,9 @@ const formattedCategories = useMemo(() => {
           minOrder={catalog.min_order} // <--- Passando o campo do catálogo
           primaryColor={primaryColor}
         />
+        <div className="mx-auto max-w-4xl px-4 pb-3 sm:px-6">
+          <Link to={`/${company_slug}/pedidos`} className="inline-flex min-h-11 items-center font-bold text-teal-700 underline underline-offset-4">Acompanhar pedido</Link>
+        </div>
       </div>
       
       {/* BARRINHA DE ENTREGA (SÓ APARECE SE O MODAL FECHOU E JÁ TEM DADOS) */}

@@ -4,6 +4,7 @@ import MenuPage from './pages/MenuPage.tsx';
 import HomeLanding from './pages/HomeLanding.tsx';
 import DashboardLanding from './pages/DashboardLanding.tsx';
 import NotFound from './pages/NotFound.tsx';
+import OrderTrackingPage from './pages/OrderTrackingPage.tsx';
 import CheckoutForm from './components/CheckoutForm.tsx';
 import { CatalogProvider } from './context/CatalogContext.tsx'; // Importado do arquivo correto!
 import { DynamicTitle } from './components/DynamicTitle.tsx';
@@ -42,6 +43,7 @@ function App() {
           
           {/* Rota filha 2: A página de finalizar o pedido (/checkout) */}
           <Route path="checkout" element={<CheckoutForm />} />
+          <Route path="pedidos" element={<OrderTrackingPage />} />
         </Route>
 
         {/* Rotas genéricas que NÃO precisam do carrinho */}

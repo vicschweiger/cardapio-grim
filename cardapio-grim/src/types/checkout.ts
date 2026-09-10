@@ -103,6 +103,7 @@ export interface MercadoPagoCheckoutPayload extends CommonOrderPayload {
 }
 
 export interface CreatedOrderResponse {
+  order_number?: number | null;
   order_id: number;
   status?: string;
   message?: string;
@@ -113,6 +114,7 @@ export interface CreatedOrderResponse {
 }
 
 export interface MercadoPagoCheckoutResponse {
+  order_number?: number | null;
   order_id: number;
   payment_status: PaymentStatus;
   preference_id: string;
@@ -124,6 +126,7 @@ export interface MercadoPagoCheckoutResponse {
 }
 
 export interface OrderStatusResponse {
+  order_number?: number | null;
   order_id: number;
   total_amount: number;
   payment_method: string;

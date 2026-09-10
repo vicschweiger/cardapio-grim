@@ -165,6 +165,7 @@ export default function CheckoutPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderCreatedId, setOrderCreatedId] = useState<number | null>(null);
+  const [orderCreatedNumber, setOrderCreatedNumber] = useState<number | null>(null);
   const [pixOrder, setPixOrder] = useState<CreatedOrderResponse | null>(null);
   const [mercadoPagoCheckout, setMercadoPagoCheckout] = useState<MercadoPagoCheckoutResponse | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -433,6 +434,7 @@ export default function CheckoutPage() {
         }
         setPixOrder(result);
       } else {
+        setOrderCreatedNumber(result.order_number ?? null);
         setOrderCreatedId(result.order_id);
       }
       clearCart();
@@ -455,8 +457,8 @@ export default function CheckoutPage() {
       onBackToMenu={() => navigate(`/${company_slug}`)}
     />
   );
-  if (pixOrder) return <CheckoutPixState order={pixOrder} companySlug={company_slug!} onBackToMenu={() => navigate(`/${company_slug}`)} />;
-  if (orderCreatedId) return <CheckoutSuccessState orderId={orderCreatedId} companySlug={company_slug!} />;
+  if (pixOrder) return <CheckoutPixState order={pixOrder} companySlug={company_slug!} customerPhone={customerPhone} onBackToMenu={() => navigate(`/${company_slug}`)} />;
+  if (orderCreatedId) return <CheckoutSuccessState orderId={orderCreatedId} orderNumber={orderCreatedNumber} customerPhone={customerPhone} companySlug={company_slug!} />;
   if (cart.length === 0) return <CheckoutEmptyState companySlug={company_slug!} />;
 
   return (
