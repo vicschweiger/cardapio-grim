@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { ArrowLeft, Check, Loader2, Package, Search, XCircle } from 'lucide-react';
 import { getTrackedOrders } from '../api/checkout';
-import { isCanceled, isFinished, normalizeTrackingPhone, startOrderTracking, trackingSteps, type TrackedOrder } from '../orders/tracking';
+import { formatPublicOrderNumber, isCanceled, isFinished, normalizeTrackingPhone, startOrderTracking, trackingSteps, type TrackedOrder } from '../orders/tracking';
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const dateTime = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' });
@@ -67,11 +67,12 @@ function TrackingContent({ companySlug }: { companySlug: string }) {
             const steps = trackingSteps(order.order_type);
             const current = steps.findIndex(step => step.status === order.status);
             const canceled = isCanceled(order.status);
+            const displayedOrderNumber = formatPublicOrderNumber(order.order_number);
             return (
               <article key={`${order.order_number}-${order.created_at}-${index}`} className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h2 className="text-xl font-bold">{order.order_number ? `Pedido #${order.order_number}` : 'Pedido sem número público'}</h2>
+                    <h2 className="text-xl font-bold">{displayedOrderNumber ? `Pedido #${displayedOrderNumber}` : 'Pedido sem número público'}</h2>
                     <p className="mt-1 text-sm text-stone-500">{order.created_at ? dateTime.format(new Date(order.created_at)) : 'Data indisponível'}</p>
                   </div>
                   <p className="text-lg font-bold">{money(order.total)}</p>

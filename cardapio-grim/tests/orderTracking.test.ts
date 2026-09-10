@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { getTrackedOrders } from '../src/api/checkout.ts';
-import { isFinished, normalizeTrackingPhone, startOrderTracking, trackingSteps, type TrackedOrder } from '../src/orders/tracking.ts';
+import { formatPublicOrderNumber, isFinished, normalizeTrackingPhone, startOrderTracking, trackingSteps, type TrackedOrder } from '../src/orders/tracking.ts';
 
 const order = (status: string): TrackedOrder => ({
   order_number: '1042', status, status_label: 'Pedido recebido', order_type: 'delivery',
@@ -29,6 +29,13 @@ test('timeline usa status atuais e retirada não mostra etapa de entrega', () =>
   assert.equal(trackingSteps('pickup')[3].label, 'Liberado para retirada');
   for (const status of ['completed', 'canceled', 'cancelled']) assert.equal(isFinished(status), true);
   assert.equal(isFinished('ready'), false);
+});
+
+test('formata o mesmo número público usado no painel', () => {
+  assert.equal(formatPublicOrderNumber(42), '0042');
+  assert.equal(formatPublicOrderNumber('1042'), '1042');
+  assert.equal(formatPublicOrderNumber(10000), '10000');
+  assert.equal(formatPublicOrderNumber(null), null);
 });
 
 test('consulta combina empresa e telefone, sem cache e com cancelamento', async t => {

@@ -37,6 +37,12 @@ export interface TrackedOrder {
 export const isCanceled = (status: string) => status === 'canceled' || status === 'cancelled';
 export const isFinished = (status: string) => status === 'completed' || isCanceled(status);
 
+export function formatPublicOrderNumber(value: string | number | null | undefined) {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 1 || number > 10000) return null;
+  return number === 10000 ? '10000' : String(number).padStart(4, '0');
+}
+
 export function trackingSteps(orderType: TrackedOrder['order_type']) {
   return [
     { status: 'new', label: 'Pedido recebido' },
