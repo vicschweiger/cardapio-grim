@@ -1,3 +1,11 @@
+export interface TrackedOrderItem {
+  name: string;
+  quantity: string;
+  unit_price: string;
+  line_total: string;
+  notes: string | null;
+}
+
 export interface TrackedOrder {
   order_number: string | null;
   created_at: string | null;
@@ -6,8 +14,23 @@ export interface TrackedOrder {
   status_label: string;
   order_type: 'pickup' | 'delivery';
   total: string;
-  payment_method: string;
-  payment_method_label: string;
+  items?: TrackedOrderItem[];
+  subtotal?: string;
+  delivery_fee?: string;
+  service_fee?: string;
+  discount_amount?: string;
+  coupon_code?: string | null;
+  payment_method?: string;
+  payment_method_label?: string;
+  payment_status?: string;
+  payment_status_label?: string;
+  is_paid?: boolean;
+  paid_at?: string | null;
+  change_for?: string | null;
+  refund_status?: string;
+  refund_status_label?: string;
+  refund_amount?: string;
+  refunded_at?: string | null;
   delivery_address: string | null;
 }
 

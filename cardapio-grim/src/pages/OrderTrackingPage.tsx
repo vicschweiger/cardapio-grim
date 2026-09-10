@@ -6,6 +6,7 @@ import { isCanceled, isFinished, normalizeTrackingPhone, startOrderTracking, tra
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 const dateTime = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' });
+const money = (value?: string | null) => currency.format(Number(value || 0));
 
 function TrackingContent({ companySlug }: { companySlug: string }) {
   const location = useLocation();
@@ -73,13 +74,13 @@ function TrackingContent({ companySlug }: { companySlug: string }) {
                     <h2 className="text-xl font-bold">{order.order_number ? `Pedido #${order.order_number}` : 'Pedido sem número público'}</h2>
                     <p className="mt-1 text-sm text-stone-500">{order.created_at ? dateTime.format(new Date(order.created_at)) : 'Data indisponível'}</p>
                   </div>
-                  <p className="text-lg font-bold">{currency.format(Number(order.total))}</p>
+                  <p className="text-lg font-bold">{money(order.total)}</p>
                 </div>
                 <p className="mt-3 text-sm text-stone-600">{order.order_type === 'pickup' ? 'Retirada na loja' : 'Entrega'}</p>
                 <dl className="mt-4 grid gap-3 rounded-xl bg-stone-50 p-4 text-sm sm:grid-cols-2">
                   <div>
                     <dt className="font-semibold text-stone-500">Forma de pagamento</dt>
-                    <dd className="mt-1 font-medium text-stone-800">{order.payment_method_label}</dd>
+                    <dd className="mt-1 font-medium text-stone-800">{order.payment_method_label || 'Não informada'}</dd>
                   </div>
                   <div>
                     <dt className="font-semibold text-stone-500">Endereço do pedido</dt>
@@ -88,6 +89,42 @@ function TrackingContent({ companySlug }: { companySlug: string }) {
                     </dd>
                   </div>
                 </dl>
+                <section className="mt-4 overflow-hidden rounded-xl border border-stone-200" aria-label={`Resumo financeiro do pedido ${order.order_number || ''}`}>
+                  <div className="border-b border-dashed border-stone-300 bg-stone-50 px-4 py-3">
+                    <h3 className="font-bold text-stone-900">Resumo do pedido</h3>
+                    <p className="text-xs text-stone-500">Itens e faturamento</p>
+                  </div>
+                  <div className="divide-y divide-dashed divide-stone-200 px-4">
+                    {(order.items || []).map((item, itemIndex) => (
+                      <div key={`${item.name}-${itemIndex}`} className="flex gap-3 py-3 text-sm">
+                        <span className="font-bold text-stone-700">{item.quantity}×</span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-stone-900">{item.name}</p>
+                          <p className="text-xs text-stone-500">{money(item.unit_price)} cada</p>
+                          {item.notes && <p className="mt-1 text-xs italic text-stone-500">Observação: {item.notes}</p>}
+                        </div>
+                        <span className="font-semibold text-stone-800">{money(item.line_total)}</span>
+                      </div>
+                    ))}
+                    {(order.items || []).length === 0 && <p className="py-3 text-sm text-stone-500">Itens não disponíveis para este pedido.</p>}
+                  </div>
+                  <dl className="space-y-2 border-t border-stone-200 bg-stone-50 px-4 py-4 text-sm">
+                    <div className="flex justify-between gap-3"><dt>Subtotal</dt><dd>{money(order.subtotal ?? order.total)}</dd></div>
+                    {Number(order.delivery_fee || 0) > 0 && <div className="flex justify-between gap-3"><dt>Frete</dt><dd>{money(order.delivery_fee)}</dd></div>}
+                    {Number(order.service_fee || 0) > 0 && <div className="flex justify-between gap-3"><dt>Taxa de serviço</dt><dd>{money(order.service_fee)}</dd></div>}
+                    {order.coupon_code && <div className="flex justify-between gap-3 text-emerald-700"><dt>Cupom {order.coupon_code}</dt><dd>{Number(order.discount_amount || 0) > 0 ? `− ${money(order.discount_amount)}` : 'Aplicado'}</dd></div>}
+                    {!order.coupon_code && Number(order.discount_amount || 0) > 0 && <div className="flex justify-between gap-3 text-emerald-700"><dt>Desconto</dt><dd>− {money(order.discount_amount)}</dd></div>}
+                    <div className="flex justify-between gap-3 border-t border-stone-300 pt-3 text-base font-black"><dt>Total</dt><dd>{money(order.total)}</dd></div>
+                  </dl>
+                  <dl className="space-y-2 border-t border-dashed border-stone-300 px-4 py-4 text-sm">
+                    <div className="flex justify-between gap-3"><dt className="text-stone-500">Situação do pagamento</dt><dd className="text-right font-bold">{order.payment_status_label || 'Não informada'}</dd></div>
+                    {order.paid_at && <div className="flex justify-between gap-3"><dt className="text-stone-500">Pago em</dt><dd>{dateTime.format(new Date(order.paid_at))}</dd></div>}
+                    {order.change_for && <div className="flex justify-between gap-3"><dt className="text-stone-500">Troco para</dt><dd>{money(order.change_for)}</dd></div>}
+                    {order.refund_status && order.refund_status !== 'none' && <div className="flex justify-between gap-3"><dt className="text-stone-500">Estorno</dt><dd className="text-right font-bold">{order.refund_status_label}</dd></div>}
+                    {Number(order.refund_amount || 0) > 0 && <div className="flex justify-between gap-3"><dt className="text-stone-500">Valor estornado</dt><dd>{money(order.refund_amount)}</dd></div>}
+                    {order.refunded_at && <div className="flex justify-between gap-3"><dt className="text-stone-500">Estornado em</dt><dd>{dateTime.format(new Date(order.refunded_at))}</dd></div>}
+                  </dl>
+                </section>
                 <p className={`mt-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold ${canceled ? 'bg-red-50 text-red-700' : 'bg-teal-50 text-teal-800'}`}>
                   {canceled && <XCircle size={18} />}{order.status_label}
                 </p>

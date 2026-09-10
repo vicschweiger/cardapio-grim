@@ -7,6 +7,11 @@ const order = (status: string): TrackedOrder => ({
   order_number: '1042', status, status_label: 'Pedido recebido', order_type: 'delivery',
   total: '58.90', created_at: '2026-09-10T12:00:00Z', updated_at: '2026-09-10T12:00:00Z',
   payment_method: 'money', payment_method_label: 'Dinheiro na entrega', delivery_address: 'Rua Teste, 10',
+  items: [{ name: 'Hambúrguer', quantity: '2', unit_price: '25.00', line_total: '50.00', notes: null }],
+  subtotal: '50.00', delivery_fee: '10.00', service_fee: '2.00', discount_amount: '3.10',
+  coupon_code: 'BEMVINDO', payment_status: 'pending', payment_status_label: 'Pagamento pendente',
+  is_paid: false, paid_at: null, change_for: '100.00', refund_status: 'none',
+  refund_status_label: 'Sem estorno', refund_amount: '0.00', refunded_at: null,
 });
 const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
 

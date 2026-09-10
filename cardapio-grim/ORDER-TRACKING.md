@@ -25,9 +25,26 @@ Retorna sempre uma lista, do mais recente para o mais antigo, contendo somente:
     "status": "preparing",
     "status_label": "Em preparo",
     "order_type": "delivery",
+    "items": [
+      {"name": "Hambúrguer", "quantity": "2", "unit_price": "25.00", "line_total": "50.00", "notes": null}
+    ],
+    "subtotal": "50.00",
+    "delivery_fee": "10.00",
+    "service_fee": "2.00",
+    "discount_amount": "3.10",
+    "coupon_code": "BEMVINDO",
     "total": "58.90",
     "payment_method": "money",
     "payment_method_label": "Dinheiro na entrega",
+    "payment_status": "pending",
+    "payment_status_label": "Pagamento pendente",
+    "is_paid": false,
+    "paid_at": null,
+    "change_for": "100.00",
+    "refund_status": "none",
+    "refund_status_label": "Sem estorno",
+    "refund_amount": "0.00",
+    "refunded_at": null,
     "delivery_address": "Rua Exemplo, 10"
   }
 ]
@@ -35,7 +52,7 @@ Retorna sempre uma lista, do mais recente para o mais antigo, contendo somente:
 
 Empresa e telefone são obrigatórios. O filtro Mongo combina ambos, com correspondência integral do telefone, incluindo formatação legada. A normalização remove formatação e o código 55 apenas quando o comprimento indica código de país, preservando DDD 55. Não há busca global pelo telefone.
 
-A resposta usa lista explícita de campos públicos, incluindo forma de pagamento e endereço do pedido solicitado, `Cache-Control: no-store` e limite de 12 consultas por minuto/IP pelo mecanismo DRF existente. Não expõe detalhes do pagamento. `400` indica parâmetros inválidos, `404` empresa desconhecida, `429` limite excedido e `503` indisponibilidade do Mongo. Telefone sem pedidos recebe `200` e `[]`. O rate limit herda o alcance do cache já configurado na instalação.
+A resposta usa lista explícita de campos públicos e monta um resumo financeiro com itens, subtotal, frete, taxa de serviço, desconto inferido, cupom, total, forma e situação do pagamento, troco e estorno. Não expõe `payment_details`, IDs internos ou identificadores do provedor. Usa `Cache-Control: no-store` e limite de 12 consultas por minuto/IP pelo mecanismo DRF existente. `400` indica parâmetros inválidos, `404` empresa desconhecida, `429` limite excedido e `503` indisponibilidade do Mongo. Telefone sem pedidos recebe `200` e `[]`. O rate limit herda o alcance do cache já configurado na instalação.
 
 A página é `/:company_slug/pedidos`. Exibe número, data/hora em São Paulo, total, modalidade, status e timeline. Retirada usa “Liberado para retirada”; cancelados têm destaque próprio. Atualiza a cada 20 segundos após a resposta anterior, sem requisições sobrepostas. Interrompe ao desmontar, trocar a busca, receber lista vazia ou ter apenas pedidos finalizados/cancelados. Falhas transitórias são informadas e permitem nova atualização; `400`, `404` e `429` interrompem tentativas automáticas.
 
