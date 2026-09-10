@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, Loader2, Package, Search, XCircle } from 'lucide-react';
+import { ArrowLeft, Check, Copy, ExternalLink, Loader2, Package, Search, XCircle } from 'lucide-react';
 import { getTrackedOrders } from '../api/checkout';
 import { formatPublicOrderNumber, isCanceled, isFinished, normalizeTrackingPhone, startOrderTracking, trackingSteps, type TrackedOrder } from '../orders/tracking';
 
@@ -20,6 +20,18 @@ function TrackingContent({ companySlug }: { companySlug: string }) {
   const [orders, setOrders] = useState<TrackedOrder[] | null>(null);
   const [loading, setLoading] = useState(Boolean(search));
   const [error, setError] = useState('');
+  const [copiedOrder, setCopiedOrder] = useState<string | null>(null);
+
+  const copyPix = async (order: TrackedOrder) => {
+    if (order.payment_action?.type !== 'pix') return;
+    try {
+      await navigator.clipboard.writeText(order.payment_action.pix_code);
+      setCopiedOrder(`${order.order_number}-${order.created_at}`);
+      window.setTimeout(() => setCopiedOrder(null), 2500);
+    } catch {
+      setError('Não foi possível copiar o PIX automaticamente. Selecione o código e copie manualmente.');
+    }
+  };
 
   useEffect(() => {
     if (!search) return;
@@ -68,6 +80,7 @@ function TrackingContent({ companySlug }: { companySlug: string }) {
             const current = steps.findIndex(step => step.status === order.status);
             const canceled = isCanceled(order.status);
             const displayedOrderNumber = formatPublicOrderNumber(order.order_number);
+            const orderKey = `${order.order_number}-${order.created_at}`;
             return (
               <article key={`${order.order_number}-${order.created_at}-${index}`} className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -125,6 +138,21 @@ function TrackingContent({ companySlug }: { companySlug: string }) {
                     {Number(order.refund_amount || 0) > 0 && <div className="flex justify-between gap-3"><dt className="text-stone-500">Valor estornado</dt><dd>{money(order.refund_amount)}</dd></div>}
                     {order.refunded_at && <div className="flex justify-between gap-3"><dt className="text-stone-500">Estornado em</dt><dd>{dateTime.format(new Date(order.refunded_at))}</dd></div>}
                   </dl>
+                  {order.payment_action?.type === 'redirect' && (
+                    <div className="border-t border-stone-200 p-4">
+                      <a href={order.payment_action.url} target="_blank" rel="noopener noreferrer" className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 font-bold text-white hover:bg-teal-800">
+                        <ExternalLink size={18} />{order.payment_action.label}
+                      </a>
+                    </div>
+                  )}
+                  {order.payment_action?.type === 'pix' && (
+                    <div className="space-y-3 border-t border-stone-200 p-4">
+                      <p className="max-h-24 overflow-y-auto break-all rounded-lg bg-stone-50 p-3 font-mono text-xs text-stone-600 select-all">{order.payment_action.pix_code}</p>
+                      <button type="button" onClick={() => void copyPix(order)} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-4 font-bold text-white hover:bg-teal-800">
+                        <Copy size={18} />{copiedOrder === orderKey ? 'Código PIX copiado' : order.payment_action.label}
+                      </button>
+                    </div>
+                  )}
                 </section>
                 <p className={`mt-3 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold ${canceled ? 'bg-red-50 text-red-700' : 'bg-teal-50 text-teal-800'}`}>
                   {canceled && <XCircle size={18} />}{order.status_label}

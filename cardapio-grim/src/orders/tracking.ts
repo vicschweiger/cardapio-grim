@@ -6,6 +6,10 @@ export interface TrackedOrderItem {
   notes: string | null;
 }
 
+export type TrackedPaymentAction =
+  | { type: 'redirect'; url: string; label: string }
+  | { type: 'pix'; pix_code: string; label: string };
+
 export interface TrackedOrder {
   order_number: string | null;
   created_at: string | null;
@@ -32,6 +36,7 @@ export interface TrackedOrder {
   refund_amount?: string;
   refunded_at?: string | null;
   delivery_address: string | null;
+  payment_action?: TrackedPaymentAction | null;
 }
 
 export const isCanceled = (status: string) => status === 'canceled' || status === 'cancelled';

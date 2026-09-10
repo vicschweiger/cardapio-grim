@@ -12,6 +12,7 @@ const order = (status: string): TrackedOrder => ({
   coupon_code: 'BEMVINDO', payment_status: 'pending', payment_status_label: 'Pagamento pendente',
   is_paid: false, paid_at: null, change_for: '100.00', refund_status: 'none',
   refund_status_label: 'Sem estorno', refund_amount: '0.00', refunded_at: null,
+  payment_action: null,
 });
 const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
 
